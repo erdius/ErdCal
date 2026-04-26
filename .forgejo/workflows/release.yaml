@@ -6,7 +6,7 @@ on:
 
 jobs:
   release:
-    runs-on: docker
+    runs-on: codeberg-medium
     container:
       image: mingc/android-build-box:latest
     steps:
