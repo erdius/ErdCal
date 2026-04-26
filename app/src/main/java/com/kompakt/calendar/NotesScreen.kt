@@ -1,4 +1,4 @@
-package com.example.helloworld
+package com.example.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.mudita.mmd.components.text.TextMMD
-import com.mudita.mmd.components.text_field.TextFieldMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -1,4 +1,4 @@
-package com.example.helloworld
+package com.example.calendar
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -15,12 +15,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.helloworld.ui.theme.KompaktCalendarTheme
+import com.example.calendar.ui.theme.KompaktCalendarTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Ensure notifications are scheduled
+        NotificationScheduler.rescheduleAll(this)
+
         setContent {
             KompaktCalendarTheme {
                 val navController = rememberNavController()

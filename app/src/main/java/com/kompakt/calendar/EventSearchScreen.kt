@@ -1,11 +1,10 @@
-package com.example.helloworld
+package com.example.calendar
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -23,10 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.helloworld.calendar.CalendarEvent
+import com.example.calendar.calendar.CalendarEvent
 import com.mudita.mmd.components.lazy.LazyColumnMMD
 import com.mudita.mmd.components.text.TextMMD
-import com.mudita.mmd.components.text_field.TextFieldMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -166,40 +164,28 @@ private fun EventSearchResultItem(event: CalendarEvent, onClick: () -> Unit) {
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(Color(event.calendarColor), RoundedCornerShape(2.dp))
-                    .padding(top = 4.dp)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            TextMMD(
+                text = event.title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            TextMMD(
+                text = if (event.allDay)
+                    event.start.toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.US))
+                else
+                    event.start.format(DateTimeFormatter.ofPattern("EEE, d MMM · $timePattern", Locale.US)),
+                fontSize = 12.sp,
+                color = Color.DarkGray
+            )
+            if (!event.location.isNullOrBlank()) {
                 TextMMD(
-                    text = event.title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
+                    text = event.location!!,
+                    fontSize = 12.sp,
+                    color = Color.Gray,
                     maxLines = 1
                 )
-                TextMMD(
-                    text = if (event.allDay)
-                        event.start.toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.US))
-                    else
-                        event.start.format(DateTimeFormatter.ofPattern("EEE, d MMM · $timePattern", Locale.US)),
-                    fontSize = 12.sp,
-                    color = Color.DarkGray
-                )
-                if (!event.location.isNullOrBlank()) {
-                    TextMMD(
-                        text = event.location!!,
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        maxLines = 1
-                    )
-                }
             }
         }
         Box(

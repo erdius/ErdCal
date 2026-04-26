@@ -1,8 +1,7 @@
-package com.example.helloworld
+package com.example.calendar
 
 import android.Manifest
 import android.app.AlarmManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build

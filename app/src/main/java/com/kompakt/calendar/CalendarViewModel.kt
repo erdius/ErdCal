@@ -1,12 +1,12 @@
-package com.example.helloworld
+package com.example.calendar
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.helloworld.calendar.CalendarAccount
-import com.example.helloworld.calendar.CalendarEvent
-import com.example.helloworld.calendar.CalendarRepository
-import com.example.helloworld.data.UserPreferencesRepository
+import com.example.calendar.calendar.CalendarAccount
+import com.example.calendar.calendar.CalendarEvent
+import com.example.calendar.calendar.CalendarRepository
+import com.example.calendar.data.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

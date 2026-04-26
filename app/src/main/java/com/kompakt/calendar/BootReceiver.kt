@@ -1,4 +1,4 @@
-package com.example.helloworld
+package com.example.calendar
 
 import android.content.BroadcastReceiver
 import android.content.Context

@@ -1,9 +1,8 @@
-package com.example.helloworld
+package com.example.calendar
 
 import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationManager
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -388,7 +387,7 @@ fun SettingsScreen(
 
 @Composable
 private fun CalendarToggleRow(
-    calendar: com.example.helloworld.calendar.CalendarAccount,
+    calendar: com.example.calendar.calendar.CalendarAccount,
     onToggle: (Boolean) -> Unit
 ) {
     Row(
@@ -399,23 +398,12 @@ private fun CalendarToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .background(
-                            Color(calendar.color),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)
-                        )
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                TextMMD(
-                    text = calendar.displayName,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1
-                )
-            }
+            TextMMD(
+                text = calendar.displayName,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
+            )
             TextMMD(
                 text = "${calendar.accountName}${if (calendar.isDavx5) " · DAVx5" else ""}",
                 fontSize = 12.sp,
@@ -492,7 +480,7 @@ private fun ReminderPickerOverlay(
 
 @Composable
 private fun DefaultCalendarRow(
-    calendar: com.example.helloworld.calendar.CalendarAccount,
+    calendar: com.example.calendar.calendar.CalendarAccount,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {

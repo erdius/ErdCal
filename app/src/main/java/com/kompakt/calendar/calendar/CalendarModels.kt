@@ -1,4 +1,4 @@
-package com.example.helloworld.calendar
+package com.example.calendar.calendar
 
 import java.time.LocalDate
 import java.time.LocalDateTime

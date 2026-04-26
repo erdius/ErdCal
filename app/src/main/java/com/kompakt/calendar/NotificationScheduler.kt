@@ -1,4 +1,4 @@
-package com.example.helloworld
+package com.example.calendar
 
 import android.Manifest
 import android.app.AlarmManager
@@ -138,7 +138,9 @@ object NotificationScheduler {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
         } else {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+            // Use setAlarmClock for maximum reliability on E-ink devices
+            val info = AlarmManager.AlarmClockInfo(triggerMs, null)
+            am.setAlarmClock(info, pi)
         }
     }
 

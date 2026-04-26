@@ -1,4 +1,4 @@
-package com.example.helloworld
+package com.example.calendar
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.helloworld.calendar.CalendarEvent
+import com.example.calendar.calendar.CalendarEvent
 import com.mudita.mmd.components.buttons.FloatingActionButtonMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
@@ -305,32 +305,24 @@ fun AgendaItem(event: CalendarEvent, onClick: () -> Unit) {
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(Color(event.calendarColor), RoundedCornerShape(2.dp))
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            TextMMD(
-                text = event.title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.Black
-            )
-        }
+        TextMMD(
+            text = event.title,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.Black
+        )
         TextMMD(
             text = timeTxt,
             fontSize = 13.sp,
             color = Color.DarkGray,
-            modifier = Modifier.padding(start = 22.dp)
+            modifier = Modifier.padding(top = 4.dp)
         )
         if (!event.location.isNullOrBlank()) {
             TextMMD(
                 text = event.location,
                 fontSize = 13.sp,
                 color = Color.Gray,
-                modifier = Modifier.padding(start = 22.dp)
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
     }

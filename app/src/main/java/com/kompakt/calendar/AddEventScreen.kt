@@ -1,4 +1,4 @@
-package com.example.helloworld
+package com.example.calendar
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Today
@@ -36,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.helloworld.calendar.CalendarAccount
+import com.example.calendar.calendar.CalendarAccount
 import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.radio_button.RadioButtonMMD
@@ -452,21 +451,13 @@ private fun CalendarPickerOverlay(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(12.dp)
-                                        .background(Color(cal.color), RoundedCornerShape(2.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                TextMMD(cal.displayName, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                TextMMD(
+                                    "${cal.accountName}${if (cal.isDavx5) " · DAVx5" else ""}",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
                                 )
-                                Spacer(Modifier.width(16.dp))
-                                Column {
-                                    TextMMD(cal.displayName, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                    TextMMD(
-                                        "${cal.accountName}${if (cal.isDavx5) " · DAVx5" else ""}",
-                                        fontSize = 12.sp,
-                                        color = Color.Gray
-                                    )
-                                }
                             }
                             RadioButtonMMD(
                                 selected = cal.id == selectedId,
