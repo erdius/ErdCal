@@ -2,22 +2,50 @@ name: Create Release
 on:
   push:
     tags:
-      - 'v*' # Triggers on any tag starting with 'v' (e.g., v1.0.0)
+      - 'v*'
 
 jobs:
   release:
     runs-on: docker
+    container:
+      image: mingc/android-build-box:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create Forgejo Release
-        uses: actions/create-release@v1
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Sign APK
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Forgejo uses this env name for compatibility
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > keystore.jks
+            BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | tail -1)
+            $BUILD_TOOLS/apksigner sign \
+              --ks keystore.jks \
+              --ks-pass "pass:$KEYSTORE_PASSWORD" \
+              --ks-key-alias "$KEY_ALIAS" \
+              --key-pass "pass:$KEY_PASSWORD" \
+              --out app/build/outputs/apk/release/app-release-signed.apk \
+              app/build/outputs/apk/release/app-release-unsigned.apk
+            rm keystore.jks
+          fi
+
+      - name: Create Release and Upload APK
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ forge.ref_name }}
-          release_name: Release ${{ forge.ref_name }}
-          body: "Automatic release for version ${{ forge.ref_name }}"
+          name: Release ${{ github.ref_name }}
+          body: "Automatic release for version ${{ github.ref_name }}"
           draft: false
           prerelease: false
+          files: app/build/outputs/apk/release/*.apk
