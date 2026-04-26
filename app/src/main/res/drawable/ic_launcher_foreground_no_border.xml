@@ -1,0 +1,58 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.067"
+        android:scaleY="0.067"
+        android:translateX="21.5"
+        android:translateY="21.5">
+
+        <!-- Removed Outer rounded rectangle path -->
+
+        <!-- Calendar Body -->
+        <path
+            android:pathData="M272 284H696A48 48 0 0 1 744 332V676A48 48 0 0 1 696 724H272A48 48 0 0 1 224 676V332A48 48 0 0 1 272 284Z"
+            android:fillColor="#FFFFFF"
+            android:strokeColor="#000000"
+            android:strokeWidth="32" />
+        <path
+            android:pathData="M224 394L744 394"
+            android:strokeColor="#000000"
+            android:strokeWidth="32" />
+        <!-- Dots -->
+        <path android:pathData="M326 469A22 22 0 0 1 282 469A22 22 0 0 1 326 469Z" android:fillColor="#000000" />
+        <path android:pathData="M416 469A22 22 0 0 1 372 469A22 22 0 0 1 416 469Z" android:fillColor="#000000" />
+        <path android:pathData="M506 469A22 22 0 0 1 462 469A22 22 0 0 1 506 469Z" android:fillColor="#000000" />
+        <path android:pathData="M596 469A22 22 0 0 1 552 469A22 22 0 0 1 596 469Z" android:fillColor="#000000" />
+        <path android:pathData="M686 469A22 22 0 0 1 642 469A22 22 0 0 1 686 469Z" android:fillColor="#000000" />
+
+        <path android:pathData="M326 559A22 22 0 0 1 282 559A22 22 0 0 1 326 559Z" android:fillColor="#000000" />
+        <path android:pathData="M416 559A22 22 0 0 1 372 559A22 22 0 0 1 416 559Z" android:fillColor="#000000" />
+        <!-- The '18' area -->
+        <path
+            android:pathData="M462 521H506A16 16 0 0 1 522 537V581A16 16 0 0 1 506 597H462A16 16 0 0 1 446 581V537A16 16 0 0 1 462 521Z"
+            android:fillColor="#000000" />
+        <path android:pathData="M596 559A22 22 0 0 1 552 559A22 22 0 0 1 596 559Z" android:fillColor="#000000" />
+        <path android:pathData="M686 559A22 22 0 0 1 642 559A22 22 0 0 1 686 559Z" android:fillColor="#000000" />
+
+        <path android:pathData="M326 649A22 22 0 0 1 282 649A22 22 0 0 1 326 649Z" android:fillColor="#000000" />
+        <path android:pathData="M416 649A22 22 0 0 1 372 649A22 22 0 0 1 416 649Z" android:fillColor="#000000" />
+        <path android:pathData="M506 649A22 22 0 0 1 462 649A22 22 0 0 1 506 649Z" android:fillColor="#000000" />
+        <path android:pathData="M596 649A22 22 0 0 1 552 649A22 22 0 0 1 596 649Z" android:fillColor="#000000" />
+        <path android:pathData="M686 649A22 22 0 0 1 642 649A22 22 0 0 1 686 649Z" android:fillColor="#000000" />
+
+        <!-- Binding Rings -->
+        <path
+            android:pathData="M352 234H376A20 20 0 0 1 396 254V314A20 20 0 0 1 376 334H352A20 20 0 0 1 332 314V254A20 20 0 0 1 352 234Z"
+            android:fillColor="#000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="32" />
+        <path
+            android:pathData="M592 234H616A20 20 0 0 1 636 254V314A20 20 0 0 1 616 334H592A20 20 0 0 1 572 314V254A20 20 0 0 1 592 234Z"
+            android:fillColor="#000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="32" />
+    </group>
+</vector>
