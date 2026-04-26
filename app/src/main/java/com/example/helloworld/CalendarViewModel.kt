@@ -117,13 +117,19 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun refreshPermission() {
-        _hasPermission.value = repo.hasReadPermission()
-        if (_hasPermission.value) {
+        val granted = repo.hasReadPermission()
+        _hasPermission.value = granted
+        if (granted) {
             // Force re-emit
             repo.notifyChanged()
             // Ensure observer is registered now that we have permission
-            (getApplication<Application>() as MyApplication).registerCalendarObserver()
-            viewModelScope.launch {
+            val app = getApplication<Application>() as MyApplication
+            app.registerCalendarObserver()
+            
+            viewModelScope.launch(Dispatchers.IO) {
+                // Schedule notifications for existing events
+                NotificationScheduler.rescheduleAll(app)
+
                 // refresh calendars list too
                 val list = repo.getCalendars()
                 _calendarsRefresh.value = list
@@ -200,7 +206,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         draftEndTime.value = event.end.toLocalTime()
         draftIsAllDay.value = event.allDay
         draftCalendarId.value = event.calendarId
-        draftReminderMinutes.value = if (event.hasReminder) 5 else null
+        draftReminderMinutes.value = event.reminderMinutes
     }
 
     suspend fun saveEvent(draft: EventDraft, reminderMinutes: Int?): Boolean {

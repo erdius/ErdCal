@@ -167,7 +167,22 @@ fun EventDetailScreen(
                 }
 
                 if (event!!.hasReminder) {
-                    DetailRow(label = "Reminder", value = "5 minutes before")
+                    val reminderText = when (val mins = event!!.reminderMinutes) {
+                        null -> "5 minutes before"
+                        0 -> "At time of event"
+                        in 1..59 -> "$mins minutes before"
+                        in 60..1439 -> {
+                            val hours = mins / 60
+                            val m = mins % 60
+                            if (m == 0) "$hours ${if (hours == 1) "hour" else "hours"} before"
+                            else "${hours}h ${m}m before"
+                        }
+                        else -> {
+                            val days = mins / 1440
+                            "$days ${if (days == 1) "day" else "days"} before"
+                        }
+                    }
+                    DetailRow(label = "Reminder", value = reminderText)
                 }
 
                 if (!event!!.description.isNullOrBlank()) {

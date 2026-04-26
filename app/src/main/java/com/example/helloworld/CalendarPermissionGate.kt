@@ -1,8 +1,12 @@
 package com.example.helloworld
 
 import android.Manifest
+import android.app.AlarmManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +36,17 @@ fun CalendarPermissionGate(
     val context = LocalContext.current
     var requested by remember { mutableStateOf(false) }
 
+    val am = remember { context.getSystemService(AlarmManager::class.java) }
+    val pm = remember { context.getSystemService(PowerManager::class.java) }
+    val isIgnoringBatteryOptimizations = remember(requested) {
+        pm?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+    }
+    val canScheduleExact = remember(requested) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            am?.canScheduleExactAlarms() ?: true
+        } else true
+    }
+
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
@@ -42,12 +57,14 @@ fun CalendarPermissionGate(
 
     LaunchedEffect(Unit) {
         if (!hasPermission && !requested) {
-            launcher.launch(
-                arrayOf(
-                    Manifest.permission.READ_CALENDAR,
-                    Manifest.permission.WRITE_CALENDAR
-                )
+            val permissions = mutableListOf(
+                Manifest.permission.READ_CALENDAR,
+                Manifest.permission.WRITE_CALENDAR
             )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            launcher.launch(permissions.toTypedArray())
         }
     }
 
@@ -85,30 +102,77 @@ fun CalendarPermissionGate(
                 color = Color.DarkGray
             )
             Spacer(Modifier.height(32.dp))
-            ButtonMMD(
-                onClick = {
-                    if (requested) {
-                        val intent = Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.fromParts("package", context.packageName, null)
-                        )
-                        context.startActivity(intent)
-                    } else {
-                        launcher.launch(
-                            arrayOf(
-                                Manifest.permission.READ_CALENDAR,
-                                Manifest.permission.WRITE_CALENDAR
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        ButtonMMD(
+                            onClick = {
+                                if (!isIgnoringBatteryOptimizations) {
+                                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                    }
+                                    context.startActivity(intent)
+                                } else if (requested || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExact)) {
+                                    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExact) {
+                                        Intent(
+                                            Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                            Uri.fromParts("package", context.packageName, null)
+                                        )
+                                    } else {
+                                        Intent(
+                                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                            Uri.fromParts("package", context.packageName, null)
+                                        )
+                                    }
+                                    context.startActivity(intent)
+                                } else {
+                                    val permissions = mutableListOf(
+                                        Manifest.permission.READ_CALENDAR,
+                                        Manifest.permission.WRITE_CALENDAR
+                                    )
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                    launcher.launch(permissions.toTypedArray())
+                                }
+                            }
+                        ) {
+                            TextMMD(
+                                if (!isIgnoringBatteryOptimizations) {
+                                    "Disable Battery Optimization"
+                                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExact) {
+                                    "Allow Exact Alarms"
+                                } else if (requested) {
+                                    "Open Settings"
+                                } else {
+                                    "Grant access"
+                                },
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
                             )
-                        )
+                        }
+
+                        if (!isIgnoringBatteryOptimizations) {
+                            Spacer(Modifier.height(8.dp))
+                            TextMMD(
+                                "To ensure notifications arrive on time, please disable battery optimization for this app.",
+                                fontSize = 12.sp,
+                                color = Color.Red,
+                                textAlign = TextAlign.Center
+                            )
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExact) {
+                            Spacer(Modifier.height(8.dp))
+                            TextMMD(
+                                "Note: Android 12 requires explicit permission to schedule exact event reminders.",
+                                fontSize = 12.sp,
+                                color = Color.Red,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
-            ) {
-                TextMMD(
-                    if (requested) "Open Settings" else "Grant access",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
             Spacer(Modifier.height(16.dp))
             TextMMD(
                 "Tip: install DAVx5 from F-Droid or Play Store to sync any CalDAV server " +

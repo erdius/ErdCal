@@ -1,0 +1,23 @@
+name: Create Release
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on any tag starting with 'v' (e.g., v1.0.0)
+
+jobs:
+  release:
+    runs-on: docker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Forgejo Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Forgejo uses this env name for compatibility
+        with:
+          tag_name: ${{ forge.ref_name }}
+          release_name: Release ${{ forge.ref_name }}
+          body: "Automatic release for version ${{ forge.ref_name }}"
+          draft: false
+          prerelease: false

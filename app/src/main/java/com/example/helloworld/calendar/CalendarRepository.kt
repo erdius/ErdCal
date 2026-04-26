@@ -138,9 +138,27 @@ class CalendarRepository(private val context: Context) {
         val list = mutableListOf<CalendarEvent>()
         resolver.query(uri, projection, selection, null, "${CalendarContract.Instances.BEGIN} ASC")?.use { c ->
             while (c.moveToNext()) {
+                val eventId = c.getLong(0)
                 val allDay = c.getInt(7) == 1
                 val beginMs = c.getLong(5)
                 val endMsRow = c.getLong(6)
+                val hasReminder = c.getInt(10) == 1
+                
+                var reminderMins: Int? = null
+                if (hasReminder) {
+                    resolver.query(
+                        CalendarContract.Reminders.CONTENT_URI,
+                        arrayOf(CalendarContract.Reminders.MINUTES),
+                        "${CalendarContract.Reminders.EVENT_ID} = ?",
+                        arrayOf(eventId.toString()),
+                        null
+                    )?.use { remC ->
+                        if (remC.moveToFirst()) {
+                            reminderMins = remC.getInt(0)
+                        }
+                    }
+                }
+
                 val startDt = if (allDay) {
                     // All-day events are stored in UTC at midnight
                     LocalDateTime.ofEpochSecond(beginMs / 1000, 0, ZoneOffset.UTC)
@@ -154,7 +172,7 @@ class CalendarRepository(private val context: Context) {
                 }
                 list.add(
                     CalendarEvent(
-                        id = c.getLong(0),
+                        id = eventId,
                         calendarId = c.getLong(1),
                         calendarDisplayName = c.getString(11) ?: "",
                         calendarColor = c.getInt(12),
@@ -166,7 +184,8 @@ class CalendarRepository(private val context: Context) {
                         allDay = allDay,
                         rrule = c.getString(8),
                         timezone = c.getString(9),
-                        hasReminder = c.getInt(10) == 1
+                        hasReminder = hasReminder,
+                        reminderMinutes = reminderMins
                     )
                 )
             }
@@ -197,8 +216,23 @@ class CalendarRepository(private val context: Context) {
             CalendarContract.Events.HAS_ALARM,
             CalendarContract.Events.CALENDAR_DISPLAY_NAME,
             CalendarContract.Events.CALENDAR_COLOR,
-            CalendarContract.Events.DURATION
+            CalendarContract.Events.DURATION,
+            CalendarContract.Events._ID
         )
+        val list = mutableListOf<Int>()
+        resolver.query(
+            CalendarContract.Reminders.CONTENT_URI,
+            arrayOf(CalendarContract.Reminders.MINUTES),
+            "${CalendarContract.Reminders.EVENT_ID} = ?",
+            arrayOf(eventId.toString()),
+            null
+        )?.use { c ->
+            while (c.moveToNext()) {
+                list.add(c.getInt(0))
+            }
+        }
+        val firstReminder = list.firstOrNull()
+
         resolver.query(uri, projection, null, null, null)?.use { c ->
             if (c.moveToFirst()) {
                 val zone = ZoneId.systemDefault()
@@ -226,7 +260,8 @@ class CalendarRepository(private val context: Context) {
                     allDay = allDay,
                     rrule = c.getString(8),
                     timezone = c.getString(9),
-                    hasReminder = c.getInt(10) == 1
+                    hasReminder = c.getInt(10) == 1,
+                    reminderMinutes = firstReminder
                 )
             }
         }

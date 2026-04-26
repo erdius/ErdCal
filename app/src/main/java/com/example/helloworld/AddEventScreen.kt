@@ -290,7 +290,7 @@ fun AddEventScreen(
                     onClick = { navController.navigate("notes") },
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
-
+                /*
                 if (isEdit) {
                     Spacer(modifier = Modifier.height(24.dp))
                     HorizontalDividerMMD(thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.Black)
@@ -312,7 +312,7 @@ fun AddEventScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(48.dp))*/
             }
         }
 

@@ -1,5 +1,15 @@
 package com.example.helloworld
 
+import android.Manifest
+import android.app.AlarmManager
+import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -7,15 +17,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
@@ -25,14 +41,13 @@ import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import kotlinx.coroutines.launch
 
-import androidx.compose.ui.draw.rotate
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     navController: NavController,
     viewModel: CalendarViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val showWeekNumbers by viewModel.showWeekNumbers.collectAsState()
     val startDayMonday by viewModel.startWeekOnMonday.collectAsState()
     val calendars by viewModel.calendarsLive.collectAsState()
@@ -96,6 +111,91 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .height(1.dp)
                     .background(Color.Black)
+            )
+
+            // Permissions Status section
+            Spacer(modifier = Modifier.height(16.dp))
+            TextMMD(
+                text = "System Permissions & Optimization",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            PermissionStatusRow(
+                title = "Calendar Access",
+                isGranted = viewModel.hasPermission.collectAsState().value,
+                onClick = {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                    }
+                    context.startActivity(intent)
+                }
+            )
+
+            HorizontalDividerMMD(thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.LightGray)
+
+            val notificationsGranted = remember {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                } else {
+                    context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
+                }
+            }
+            PermissionStatusRow(
+                title = "Notifications",
+                isGranted = notificationsGranted,
+                onClick = {
+                    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        }
+                    } else {
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                    }
+                    context.startActivity(intent)
+                }
+            )
+
+            HorizontalDividerMMD(thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.LightGray)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val alarmManager = context.getSystemService(AlarmManager::class.java)
+                PermissionStatusRow(
+                    title = "Exact Alarms",
+                    isGranted = alarmManager.canScheduleExactAlarms(),
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                    }
+                )
+                HorizontalDividerMMD(thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.LightGray)
+            }
+
+            val powerManager = context.getSystemService(PowerManager::class.java)
+            val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(context.packageName)
+            PermissionStatusRow(
+                title = "Battery Optimization",
+                isGranted = isIgnoringBatteryOptimizations,
+                subtitle = if (isIgnoringBatteryOptimizations) "Disabled (Recommended)" else "Enabled (May delay reminders)",
+                isWarning = !isIgnoringBatteryOptimizations,
+                onClick = {
+                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    context.startActivity(intent)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDividerMMD(
+                thickness = 1.dp,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = Color.Black
             )
 
             // Calendar visibility section
@@ -419,6 +519,43 @@ private fun DefaultCalendarRow(
         RadioButtonMMD(
             selected = isSelected,
             onClick = onClick
+        )
+    }
+}
+
+@Composable
+private fun PermissionStatusRow(
+    title: String,
+    isGranted: Boolean,
+    subtitle: String? = null,
+    isWarning: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            TextMMD(text = title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            if (subtitle != null) {
+                TextMMD(text = subtitle, fontSize = 12.sp, color = if (isWarning && !isGranted) Color.Red else Color.Gray)
+            } else {
+                TextMMD(
+                    text = if (isGranted) "Granted" else "Not granted (Tap to fix)",
+                    fontSize = 12.sp,
+                    color = if (isGranted) Color.DarkGray else Color.Red
+                )
+            }
+        }
+        Icon(
+            imageVector = if (isGranted) Icons.Default.CheckCircle else if (isWarning) Icons.Default.Warning else Icons.Default.Error,
+            contentDescription = null,
+            tint = if (isGranted) Color(0xFF4CAF50) else if (isWarning) Color(0xFFFFA000) else Color.Red,
+            modifier = Modifier.size(24.dp)
         )
     }
 }
