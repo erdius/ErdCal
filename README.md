@@ -11,12 +11,11 @@ Events sync through the standard Android Calendar Provider — no accounts are s
 ---
 
 <p float="left">
-  <img src="screenshots/landing_screen.png" width="16%" />
-  <img src="screenshots/month_view.png" width="16%" />
-  <img src="screenshots/day_view.png" width="16%" />
-  <img src="screenshots/agenda_view.png" width="16%" />
-  <img src="screenshots/add_event.png" width="16%" />
-  <img src="screenshots/notification.png" width="16%">
+  <img src="screenshots/month_view.png" width="19%" />
+  <img src="screenshots/day_view.png" width="19%" />
+  <img src="screenshots/agenda_view.png" width="19%" />
+  <img src="screenshots/add_event.png" width="19%" />
+  <img src="screenshots/notification.png" width="19%">
 </p>
 
 ---
