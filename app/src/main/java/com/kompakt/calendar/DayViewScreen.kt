@@ -1,4 +1,4 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.calendar.calendar.CalendarEvent
+import com.kompakt.calendar.calendar.CalendarEvent
 import com.mudita.mmd.components.buttons.FloatingActionButtonMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD

@@ -1,12 +1,12 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.calendar.calendar.CalendarAccount
-import com.example.calendar.calendar.CalendarEvent
-import com.example.calendar.calendar.CalendarRepository
-import com.example.calendar.data.UserPreferencesRepository
+import com.kompakt.calendar.calendar.CalendarAccount
+import com.kompakt.calendar.calendar.CalendarEvent
+import com.kompakt.calendar.calendar.CalendarRepository
+import com.kompakt.calendar.data.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,7 +39,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     private val _currentMonth = MutableStateFlow(YearMonth.now())
     val currentMonth: StateFlow<YearMonth> = _currentMonth.asStateFlow()
 
-    private val _agendaPage = MutableStateFlow(1)
+    private val _agendaPage = MutableStateFlow(getPageForCurrentTime())
     val agendaPage: StateFlow<Int> = _agendaPage.asStateFlow()
 
     private val _eventNote = MutableStateFlow("")
@@ -152,13 +152,22 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     val startWeekOnMonday: StateFlow<Boolean> = prefs.startWeekOnMonday
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
+    val onboardingCompleted: StateFlow<Boolean> = prefs.onboardingCompleted
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     init {
         viewModelScope.launch {
             _calendarsRefresh.value = repo.getCalendars()
         }
     }
 
-    fun onDateSelected(date: LocalDate) { _selectedDate.value = date }
+    fun onDateSelected(date: LocalDate) {
+        _selectedDate.value = date
+        if (date == LocalDate.now()) {
+            _agendaPage.value = getPageForCurrentTime()
+        }
+    }
+
     fun nextMonth() { _currentMonth.value = _currentMonth.value.plusMonths(1) }
     fun previousMonth() { _currentMonth.value = _currentMonth.value.minusMonths(1) }
     fun nextDay() {
@@ -175,6 +184,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         val today = LocalDate.now()
         _currentMonth.value = YearMonth.from(today)
         _selectedDate.value = today
+        _agendaPage.value = getPageForCurrentTime()
     }
 
     fun beginNewEvent() {
@@ -280,6 +290,19 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun setStartWeekOnMonday(monday: Boolean) {
         prefs.saveStartWeekOnMonday(monday)
+    }
+
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        prefs.saveOnboardingCompleted(completed)
+    }
+
+    private fun getPageForCurrentTime(): Int {
+        val hour = java.time.LocalTime.now().hour
+        return when {
+            hour < 8 -> 0
+            hour < 19 -> 1
+            else -> 2
+        }
     }
 }
 

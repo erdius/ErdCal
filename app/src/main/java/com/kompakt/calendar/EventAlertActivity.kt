@@ -1,6 +1,5 @@
 package com.kompakt.calendar
 
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -200,7 +199,7 @@ class EventAlertActivity : ComponentActivity() {
                     text = "Close",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = Color.White
                 )
             }
         }

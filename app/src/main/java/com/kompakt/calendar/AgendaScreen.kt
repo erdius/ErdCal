@@ -1,4 +1,4 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
@@ -32,7 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.calendar.calendar.CalendarEvent
+import com.kompakt.calendar.calendar.CalendarEvent
+import com.kompakt.calendar.ui.EInkScrollbar
+import com.kompakt.calendar.ui.eInkVerticalScroll
 import com.mudita.mmd.components.buttons.FloatingActionButtonMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
@@ -125,8 +127,6 @@ fun AgendaScreen(
     }
 }
 
-private const val SCROLL_STEP = 4
-
 @Composable
 private fun AgendaList(
     groupedEvents: Map<LocalDate, List<CalendarEvent>>,
@@ -139,27 +139,13 @@ private fun AgendaList(
     val canScrollBackward by remember { derivedStateOf { state.canScrollBackward } }
     val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
 
-    var isDragging by remember { mutableStateOf(false) }
-
     Row(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             state = state,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onDragEnd = { isDragging = false }
-                    ) { _, dragAmount ->
-                        if (!isDragging && isScrollable) {
-                            isDragging = true
-                            val direction = if (dragAmount > 0) -1 else 1
-                            val newIdx = (state.firstVisibleItemIndex + direction * SCROLL_STEP)
-                                .coerceIn(0, state.layoutInfo.totalItemsCount - 1)
-                            scope.launch { state.scrollToItem(newIdx) }
-                        }
-                    }
-                },
+                .eInkVerticalScroll(state, scope, isScrollable),
             userScrollEnabled = false,
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
@@ -175,92 +161,7 @@ private fun AgendaList(
         }
 
         if (isScrollable) {
-            AgendaScrollbar(
-                canScrollBackward = canScrollBackward,
-                canScrollForward = canScrollForward,
-                firstVisibleIndex = state.firstVisibleItemIndex,
-                totalItems = state.layoutInfo.totalItemsCount,
-                visibleItemsCount = state.layoutInfo.visibleItemsInfo.size,
-                onScrollUp = {
-                    val newIdx = (state.firstVisibleItemIndex - SCROLL_STEP).coerceAtLeast(0)
-                    scope.launch { state.scrollToItem(newIdx) }
-                },
-                onScrollDown = {
-                    val newIdx = (state.firstVisibleItemIndex + SCROLL_STEP)
-                        .coerceAtMost(state.layoutInfo.totalItemsCount - 1)
-                    scope.launch { state.scrollToItem(newIdx) }
-                },
-                onScrollToTop = { scope.launch { state.scrollToItem(0) } },
-                onScrollToBottom = { scope.launch { state.scrollToItem(state.layoutInfo.totalItemsCount - 1) } }
-            )
-        }
-    }
-}
-
-@Composable
-private fun AgendaScrollbar(
-    canScrollBackward: Boolean,
-    canScrollForward: Boolean,
-    firstVisibleIndex: Int,
-    totalItems: Int,
-    visibleItemsCount: Int,
-    onScrollUp: () -> Unit,
-    onScrollDown: () -> Unit,
-    onScrollToTop: () -> Unit,
-    onScrollToBottom: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .width(32.dp)
-            .padding(horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        IconButton(
-            onClick = onScrollUp,
-            modifier = Modifier.size(32.dp).padding(top = 8.dp)
-        ) {
-            Icon(
-                Icons.Default.KeyboardArrowUp,
-                contentDescription = "Scroll up",
-                modifier = Modifier.size(20.dp),
-                tint = if (canScrollBackward) Color.Black else Color.LightGray
-            )
-        }
-
-        Canvas(
-            modifier = Modifier
-                .width(8.dp)
-                .weight(1f)
-                .border(0.5.dp, Color.Black, RoundedCornerShape(4.dp))
-        ) {
-            val safeTotal = totalItems.coerceAtLeast(1)
-            val sliderFraction = (visibleItemsCount.toFloat() / safeTotal).coerceIn(0.05f, 1f)
-            val sliderHeight = (size.height * sliderFraction).coerceAtLeast(16.dp.toPx())
-            val maxOffset = size.height - sliderHeight
-            val scrollFraction = if (safeTotal > visibleItemsCount)
-                firstVisibleIndex.toFloat() / (safeTotal - visibleItemsCount).toFloat()
-            else 0f
-            val sliderTop = (maxOffset * scrollFraction).coerceIn(0f, maxOffset)
-
-            drawRoundRect(
-                color = Color.Black,
-                topLeft = Offset(0f, sliderTop),
-                size = Size(size.width, sliderHeight),
-                cornerRadius = CornerRadius(size.width / 2, size.width / 2)
-            )
-        }
-
-        IconButton(
-            onClick = onScrollDown,
-            modifier = Modifier.size(32.dp).padding(bottom = 8.dp)
-        ) {
-            Icon(
-                Icons.Default.KeyboardArrowDown,
-                contentDescription = "Scroll down",
-                modifier = Modifier.size(20.dp),
-                tint = if (canScrollForward) Color.Black else Color.LightGray
-            )
+            EInkScrollbar(state = state, scope = scope)
         }
     }
 }

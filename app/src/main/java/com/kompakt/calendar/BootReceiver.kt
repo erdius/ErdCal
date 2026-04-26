@@ -1,4 +1,4 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import android.content.BroadcastReceiver
 import android.content.Context

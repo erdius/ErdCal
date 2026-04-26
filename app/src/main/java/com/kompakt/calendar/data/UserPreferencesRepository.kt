@@ -1,4 +1,4 @@
-package com.example.calendar.data
+package com.kompakt.calendar.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -32,6 +32,9 @@ class UserPreferencesRepository(
             if (mins == -1) null else mins
         }
 
+    val onboardingCompleted: Flow<Boolean> = context.dataStore.data
+        .map { it[ONBOARDING_COMPLETED] ?: false }
+
     suspend fun saveShowWeekNumbers(value: Boolean) {
         context.dataStore.edit { it[SHOW_WEEK_NUMBERS] = value }
     }
@@ -48,12 +51,15 @@ class UserPreferencesRepository(
         context.dataStore.edit { it[DEFAULT_REMINDER_MINUTES] = minutes ?: -1 }
     }
 
-
+    suspend fun saveOnboardingCompleted(value: Boolean) {
+        context.dataStore.edit { it[ONBOARDING_COMPLETED] = value }
+    }
 
     private companion object {
         val SHOW_WEEK_NUMBERS = booleanPreferencesKey("show_week_numbers")
         val START_WEEK_ON_MONDAY = booleanPreferencesKey("start_week_on_monday")
         val DEFAULT_CALENDAR_ID = longPreferencesKey("default_calendar_id")
         val DEFAULT_REMINDER_MINUTES = intPreferencesKey("default_reminder_minutes")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }
 }

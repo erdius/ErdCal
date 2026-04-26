@@ -1,4 +1,4 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import android.Manifest
 import android.app.AlarmManager
@@ -12,8 +12,9 @@ import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -33,6 +34,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.kompakt.calendar.ui.EInkScrollbar
+import com.kompakt.calendar.ui.eInkVerticalScroll
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.radio_button.RadioButtonMMD
 import com.mudita.mmd.components.switcher.SwitchMMD
@@ -54,6 +57,11 @@ fun SettingsScreen(
     val defaultReminderMinutes by viewModel.defaultReminderMinutes.collectAsState()
     val scope = rememberCoroutineScope()
     var showReminderPicker by remember { mutableStateOf(false) }
+
+    val listState = rememberLazyListState()
+    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
+    val canScrollBackward by remember { derivedStateOf { listState.canScrollBackward } }
+    val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
 
     val reminderOptions = remember {
         listOf(
@@ -98,127 +106,191 @@ fun SettingsScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
         ) {
-            Box(
+            LazyColumn(
+                state = listState,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(Color.Black)
-            )
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .eInkVerticalScroll(listState, scope, isScrollable),
+                userScrollEnabled = false
+            ) {
 
-            // Permissions Status section
-            Spacer(modifier = Modifier.height(16.dp))
-            TextMMD(
-                text = "System Permissions & Optimization",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Gray,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            PermissionStatusRow(
-                title = "Calendar Access",
-                isGranted = viewModel.hasPermission.collectAsState().value,
-                onClick = {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
-                    }
-                    context.startActivity(intent)
-                }
-            )
-
-            HorizontalDividerMMD(thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.LightGray)
-
-            val notificationsGranted = remember {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-                } else {
-                    context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
-                }
-            }
-            PermissionStatusRow(
-                title = "Notifications",
-                isGranted = notificationsGranted,
-                onClick = {
-                    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                        }
-                    } else {
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
-                        }
-                    }
-                    context.startActivity(intent)
-                }
-            )
-
-            HorizontalDividerMMD(thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.LightGray)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val alarmManager = context.getSystemService(AlarmManager::class.java)
-                PermissionStatusRow(
-                    title = "Exact Alarms",
-                    isGranted = alarmManager.canScheduleExactAlarms(),
-                    onClick = {
-                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
-                        }
-                        context.startActivity(intent)
-                    }
-                )
-                HorizontalDividerMMD(thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.LightGray)
-            }
-
-            val powerManager = context.getSystemService(PowerManager::class.java)
-            val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(context.packageName)
-            PermissionStatusRow(
-                title = "Battery Optimization",
-                isGranted = isIgnoringBatteryOptimizations,
-                subtitle = if (isIgnoringBatteryOptimizations) "Disabled (Recommended)" else "Enabled (May delay reminders)",
-                isWarning = !isIgnoringBatteryOptimizations,
-                onClick = {
-                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                    context.startActivity(intent)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDividerMMD(
-                thickness = 1.dp,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color.Black
-            )
-
-            // Calendar visibility section
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                TextMMD(
-                    text = "Calendars",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (calendars.isEmpty()) {
+                // Permissions Status section
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item {
                     TextMMD(
-                        text = "No calendars found. Install and set up DAVx5 to add CalDAV accounts, " +
-                                "or sign in with Google.",
+                        text = "System Permissions & Optimization",
                         fontSize = 14.sp,
-                        color = Color.DarkGray,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                item {
+                    PermissionStatusRow(
+                        title = "Calendar Access",
+                        isGranted = viewModel.hasPermission.collectAsState().value,
+                        onClick = {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", context.packageName, null)
+                            }
+                            context.startActivity(intent)
+                        }
+                    )
+                }
+
+                item {
+                    HorizontalDividerMMD(
+                        thickness = 0.5.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.LightGray
+                    )
+                }
+
+                item {
+                    val notificationsGranted =
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.POST_NOTIFICATIONS
+                            ) == PackageManager.PERMISSION_GRANTED
+                        } else {
+                            context.getSystemService(NotificationManager::class.java)
+                                .areNotificationsEnabled()
+                        }
+                    PermissionStatusRow(
+                        title = "Notifications",
+                        isGranted = notificationsGranted,
+                        onClick = {
+                            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                }
+                            } else {
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", context.packageName, null)
+                                }
+                            }
+                            context.startActivity(intent)
+                        }
+                    )
+                }
+
+                item {
+                    HorizontalDividerMMD(
+                        thickness = 0.5.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.LightGray
+                    )
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    item {
+                        val alarmManager = context.getSystemService(AlarmManager::class.java)
+                        PermissionStatusRow(
+                            title = "Exact Alarms",
+                            isGranted = alarmManager.canScheduleExactAlarms(),
+                            onClick = {
+                                val intent =
+                                    Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                        data = Uri.fromParts("package", context.packageName, null)
+                                    }
+                                context.startActivity(intent)
+                            }
+                        )
+                    }
+                    item {
+                        HorizontalDividerMMD(
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = Color.LightGray
+                        )
+                    }
+                }
+
+                item {
+                    val powerManager = context.getSystemService(PowerManager::class.java)
+                    val isIgnoringBatteryOptimizations =
+                        powerManager.isIgnoringBatteryOptimizations(context.packageName)
+                    PermissionStatusRow(
+                        title = "Battery Optimization",
+                        isGranted = isIgnoringBatteryOptimizations,
+                        subtitle = if (isIgnoringBatteryOptimizations) "Disabled (Recommended)" else "Enabled (May delay reminders)",
+                        isWarning = !isIgnoringBatteryOptimizations,
+                        onClick = {
+                            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            context.startActivity(intent)
+                        }
+                    )
+                }
+
+                item {
+                    HorizontalDividerMMD(
+                        thickness = 0.5.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.LightGray
+                    )
+                }
+
+                item {
+                    val canDrawOverlays = Settings.canDrawOverlays(context)
+                    PermissionStatusRow(
+                        title = "Display over other apps",
+                        isGranted = canDrawOverlays,
+                        subtitle = if (canDrawOverlays) "Allowed" else "Needed for full-screen alerts",
+                        isWarning = !canDrawOverlays,
+                        onClick = {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                            context.startActivity(intent)
+                        }
+                    )
+                }
+
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item {
+                    HorizontalDividerMMD(
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.Black
+                    )
+                }
+
+                // Calendar visibility section
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item {
+                    TextMMD(
+                        text = "Calendars",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                if (calendars.isEmpty()) {
+                    item {
+                        TextMMD(
+                            text = "No calendars found. Install and set up DAVx5 to add CalDAV accounts, " +
+                                    "or sign in with Google.",
+                            fontSize = 14.sp,
+                            color = Color.DarkGray,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
                 } else {
-                    calendars.forEach { cal ->
+                    items(calendars) { cal ->
                         CalendarToggleRow(
                             calendar = cal,
                             onToggle = { visible ->
@@ -230,164 +302,207 @@ fun SettingsScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDividerMMD(
-                    thickness = 1.dp,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = Color.Black
-                )
-            }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item {
+                    HorizontalDividerMMD(
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.Black
+                    )
+                }
 
-            // Display preferences
-            Spacer(modifier = Modifier.height(16.dp))
-            TextMMD(
-                text = "Display",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Gray,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            SettingToggle(
-                title = "Show week numbers",
-                checked = showWeekNumbers,
-                onCheckedChange = { scope.launch { viewModel.setShowWeekNumbers(it) } }
-            )
-
-            HorizontalDividerMMD(
-                thickness = 1.dp,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color.Black
-            )
-
-            SettingToggle(
-                title = "Start week on Monday",
-                checked = startDayMonday,
-                onCheckedChange = { scope.launch { viewModel.setStartWeekOnMonday(it) } }
-            )
-
-            HorizontalDividerMMD(
-                thickness = 1.dp,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color.Black
-            )
-
-            // Default Calendar section
-            Spacer(modifier = Modifier.height(16.dp))
-            TextMMD(
-                text = "Default Calendar",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Gray,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (calendars.isEmpty()) {
-                TextMMD(
-                    text = "No calendars available.",
-                    fontSize = 14.sp,
-                    color = Color.DarkGray,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            } else {
-                val writableCalendars = calendars.filter { it.isWritable }
-                if (writableCalendars.isEmpty()) {
+                // Display preferences
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item {
                     TextMMD(
-                        text = "No writable calendars found.",
+                        text = "Display",
                         fontSize = 14.sp,
-                        color = Color.DarkGray,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
-                } else {
-                    writableCalendars.forEach { cal ->
-                        DefaultCalendarRow(
-                            calendar = cal,
-                            isSelected = cal.id == defaultCalendarId,
-                            onClick = {
-                                scope.launch {
-                                    viewModel.setDefaultCalendar(cal.id)
-                                }
-                            }
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                item {
+                    SettingToggle(
+                        title = "Show week numbers",
+                        checked = showWeekNumbers,
+                        onCheckedChange = { scope.launch { viewModel.setShowWeekNumbers(it) } }
+                    )
+                }
+
+                item {
+                    HorizontalDividerMMD(
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.Black
+                    )
+                }
+
+                item {
+                    SettingToggle(
+                        title = "Start week on Monday",
+                        checked = startDayMonday,
+                        onCheckedChange = { scope.launch { viewModel.setStartWeekOnMonday(it) } }
+                    )
+                }
+
+                item {
+                    HorizontalDividerMMD(
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.Black
+                    )
+                }
+
+                // Default Calendar section
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item {
+                    TextMMD(
+                        text = "Default Calendar",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                if (calendars.isEmpty()) {
+                    item {
+                        TextMMD(
+                            text = "No calendars available.",
+                            fontSize = 14.sp,
+                            color = Color.DarkGray,
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
+                } else {
+                    val writableCalendars = calendars.filter { it.isWritable }
+                    if (writableCalendars.isEmpty()) {
+                        item {
+                            TextMMD(
+                                text = "No writable calendars found.",
+                                fontSize = 14.sp,
+                                color = Color.DarkGray,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
+                    } else {
+                        items(writableCalendars) { cal ->
+                            DefaultCalendarRow(
+                                calendar = cal,
+                                isSelected = cal.id == defaultCalendarId,
+                                onClick = {
+                                    scope.launch {
+                                        viewModel.setDefaultCalendar(cal.id)
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
+
+                item {
+                    HorizontalDividerMMD(
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.Black
+                    )
+                }
+
+                // Default Reminder section
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item {
+                    TextMMD(
+                        text = "Default Reminder",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showReminderPicker = true }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TextMMD(
+                            text = reminderOptions.find { it.second == defaultReminderMinutes }?.first
+                                ?: "No reminder",
+                            fontSize = 16.sp
+                        )
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .rotate(180f)
+                        ) // Chevron right
+                    }
+                }
+
+                item {
+                    HorizontalDividerMMD(
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.Black
+                    )
+                }
+
+                // About section
+                item { Spacer(modifier = Modifier.height(32.dp)) }
+                item {
+                    TextMMD(
+                        text = "About",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item {
+                    TextMMD(
+                        text = "KompaktCalendar",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                item {
+                    TextMMD(
+                        text = "Version 1.0.0\n\n" +
+                                "Built with Mudita Mindful Design for e-ink devices.\n\n" +
+                                "Reads calendars synced by DAVx5 (CalDAV), Google Calendar, Exchange, " +
+                                "and any other Android sync adapter.",
+                        fontSize = 12.sp,
+                        color = Color.DarkGray,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        lineHeight = 16.sp
+                    )
+                }
+
+                item { Spacer(modifier = Modifier.height(32.dp)) }
             }
 
-            HorizontalDividerMMD(
-                thickness = 1.dp,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color.Black
-            )
-
-            // Default Reminder section
-            Spacer(modifier = Modifier.height(16.dp))
-            TextMMD(
-                text = "Default Reminder",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Gray,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showReminderPicker = true }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TextMMD(
-                    text = reminderOptions.find { it.second == defaultReminderMinutes }?.first ?: "No reminder",
-                    fontSize = 16.sp
-                )
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(24.dp).rotate(180f)) // Chevron right
+            if (isScrollable) {
+                EInkScrollbar(state = listState, scope = scope)
             }
-
-            HorizontalDividerMMD(
-                thickness = 1.dp,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color.Black
-            )
-
-            // About section
-            Spacer(modifier = Modifier.height(32.dp))
-            TextMMD(
-                text = "About",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Gray,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TextMMD(
-                text = "KompaktCalendar",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            TextMMD(
-                text = "Version 1.0.0\n\n" +
-                        "Built with Mudita Mindful Design for e-ink devices.\n\n" +
-                        "Reads calendars synced by DAVx5 (CalDAV), Google Calendar, Exchange, " +
-                        "and any other Android sync adapter.",
-                fontSize = 12.sp,
-                color = Color.DarkGray,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                lineHeight = 16.sp
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
 private fun CalendarToggleRow(
-    calendar: com.example.calendar.calendar.CalendarAccount,
+    calendar: com.kompakt.calendar.calendar.CalendarAccount,
     onToggle: (Boolean) -> Unit
 ) {
     Row(
@@ -425,6 +540,12 @@ private fun ReminderPickerOverlay(
     onPick: (Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
+    val canScrollBackward by remember { derivedStateOf { listState.canScrollBackward } }
+    val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color.White
@@ -450,28 +571,40 @@ private fun ReminderPickerOverlay(
 
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
-            ) {
-                options.forEach { (label, minutes) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPick(minutes) }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        TextMMD(label, fontSize = 18.sp, fontWeight = if (selectedMinutes == minutes) FontWeight.Bold else FontWeight.Normal)
-                        RadioButtonMMD(
-                            selected = selectedMinutes == minutes,
-                            onClick = { onPick(minutes) }
-                        )
+            Row(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .eInkVerticalScroll(listState, scope, isScrollable)
+                        .padding(16.dp),
+                    userScrollEnabled = false
+                ) {
+                    items(options) { (label, minutes) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(minutes) }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextMMD(
+                                label,
+                                fontSize = 18.sp,
+                                fontWeight = if (selectedMinutes == minutes) FontWeight.Bold else FontWeight.Normal
+                            )
+                            RadioButtonMMD(
+                                selected = selectedMinutes == minutes,
+                                onClick = { onPick(minutes) }
+                            )
+                        }
+                        HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
                     }
-                    HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
+                }
+                if (isScrollable) {
+                    EInkScrollbar(state = listState, scope = scope)
                 }
             }
         }
@@ -480,7 +613,7 @@ private fun ReminderPickerOverlay(
 
 @Composable
 private fun DefaultCalendarRow(
-    calendar: com.example.calendar.calendar.CalendarAccount,
+    calendar: com.kompakt.calendar.calendar.CalendarAccount,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -530,19 +663,19 @@ private fun PermissionStatusRow(
         Column(modifier = Modifier.weight(1f)) {
             TextMMD(text = title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             if (subtitle != null) {
-                TextMMD(text = subtitle, fontSize = 12.sp, color = if (isWarning && !isGranted) Color.Red else Color.Gray)
+                TextMMD(text = subtitle, fontSize = 12.sp, color = Color.Black)
             } else {
                 TextMMD(
                     text = if (isGranted) "Granted" else "Not granted (Tap to fix)",
                     fontSize = 12.sp,
-                    color = if (isGranted) Color.DarkGray else Color.Red
+                    color = Color.Black
                 )
             }
         }
         Icon(
             imageVector = if (isGranted) Icons.Default.CheckCircle else if (isWarning) Icons.Default.Warning else Icons.Default.Error,
             contentDescription = null,
-            tint = if (isGranted) Color(0xFF4CAF50) else if (isWarning) Color(0xFFFFA000) else Color.Red,
+            tint = Color.Black,
             modifier = Modifier.size(24.dp)
         )
     }

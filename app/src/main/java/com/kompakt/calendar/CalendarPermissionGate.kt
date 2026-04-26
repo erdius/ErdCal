@@ -1,4 +1,4 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import android.Manifest
 import android.app.AlarmManager

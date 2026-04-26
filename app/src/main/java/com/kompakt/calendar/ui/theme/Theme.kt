@@ -1,4 +1,4 @@
-package com.example.calendar.ui.theme
+package com.kompakt.calendar.ui.theme
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color

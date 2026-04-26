@@ -1,4 +1,4 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
@@ -6,11 +6,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -35,7 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.calendar.calendar.CalendarAccount
+import com.kompakt.calendar.calendar.CalendarAccount
+import com.kompakt.calendar.ui.EInkScrollbar
+import com.kompakt.calendar.ui.eInkVerticalScroll
 import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.radio_button.RadioButtonMMD
@@ -102,6 +105,11 @@ fun AddEventScreen(
 
     val writableCalendars = remember(calendars) { calendars.filter { it.isWritable } }
     val selectedCalendar = calendars.firstOrNull { it.id == selectedCalendarId }
+
+    val listState = rememberLazyListState()
+    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
+    val canScrollBackward by remember { derivedStateOf { listState.canScrollBackward } }
+    val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -182,136 +190,163 @@ fun AddEventScreen(
                 }
             }
         ) { paddingValues ->
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.White)
                     .padding(paddingValues)
             ) {
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .eInkVerticalScroll(listState, scope, isScrollable),
+                    userScrollEnabled = false
+                ) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Color.Black)
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    item { Spacer(modifier = Modifier.height(12.dp)) }
 
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    HeaderTab(
-                        label = "FROM",
-                        time = startTime,
-                        date = startDate,
-                        isSelected = isPickingFrom,
-                        isAllDay = isAllDay,
-                        onClick = { isPickingFrom = true },
-                        modifier = Modifier.weight(1f)
-                    )
-                    HeaderTab(
-                        label = "TO",
-                        time = endTime,
-                        date = endDate,
-                        isSelected = !isPickingFrom,
-                        isAllDay = isAllDay,
-                        onClick = { isPickingFrom = false },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                EventPicker(
-                    date = if (isPickingFrom) startDate else endDate,
-                    time = if (isPickingFrom) startTime else endTime,
-                    isAllDay = isAllDay,
-                    onDateChange = {
-                        if (isPickingFrom) {
-                            viewModel.updateDraftStartDate(it)
-                            if (endDate.isBefore(it)) viewModel.updateDraftEndDate(it)
-                        } else {
-                            viewModel.updateDraftEndDate(it)
-                            if (it.isBefore(startDate)) viewModel.updateDraftStartDate(it)
-                        }
-                    },
-                    onTimeChange = {
-                        if (isPickingFrom) {
-                            viewModel.updateDraftStartTime(it)
-                            if (startDate == endDate && (endTime.isBefore(it) || endTime == it)) {
-                                viewModel.updateDraftEndTime(it.plusHours(1))
-                            }
-                        } else {
-                            viewModel.updateDraftEndTime(it)
-                            if (startDate == endDate && it.isBefore(startTime)) {
-                                viewModel.updateDraftStartTime(it.minusHours(1))
-                            }
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            HeaderTab(
+                                label = "FROM",
+                                time = startTime,
+                                date = startDate,
+                                isSelected = isPickingFrom,
+                                isAllDay = isAllDay,
+                                onClick = { isPickingFrom = true },
+                                modifier = Modifier.weight(1f)
+                            )
+                            HeaderTab(
+                                label = "TO",
+                                time = endTime,
+                                date = endDate,
+                                isSelected = !isPickingFrom,
+                                isAllDay = isAllDay,
+                                onClick = { isPickingFrom = false },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
-                )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                    item { Spacer(modifier = Modifier.height(4.dp)) }
 
-                OptionRow(
-                    icon = Icons.Outlined.Today,
-                    title = "All-day event",
-                    checked = isAllDay,
-                    onCheckedChange = { viewModel.updateDraftIsAllDay(it) }
-                )
-
-                HorizontalDividerMMD(thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.Black)
-
-                OptionRow(
-                    icon = Icons.Outlined.NotificationsNone,
-                    title = reminderOptions.find { it.second == selectedReminderMinutes }?.first ?: "No reminder",
-                    hasChevron = true,
-                    onClick = { showReminderPicker = true },
-                    enabled = !isAllDay,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-
-                HorizontalDividerMMD(thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.Black)
-
-                OptionRow(
-                    icon = Icons.Default.CalendarMonth,
-                    title = selectedCalendar?.let {
-                        "${it.displayName}${if (it.isDavx5) " (DAVx5)" else ""}"
-                    } ?: "Choose calendar",
-                    hasChevron = true,
-                    onClick = { showCalendarPicker = true },
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-
-                HorizontalDividerMMD(thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.Black)
-
-                OptionRow(
-                    icon = Icons.Outlined.Description,
-                    title = if (eventNote.isEmpty()) {
-                        "Add notes"
-                    } else {
-                        val displayNote = eventNote.replace("\n", " ")
-                        if (displayNote.length > 10) "${displayNote.take(10)}..." else displayNote
-                    },
-                    hasChevron = true,
-                    onClick = { navController.navigate("notes") },
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-                /*
-                if (isEdit) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    HorizontalDividerMMD(thickness = 1.dp, modifier = Modifier.padding(horizontal = 16.dp), color = Color.Black)
-                    OptionRow(
-                        icon = Icons.Default.Delete,
-                        title = "Delete event",
-                        hasChevron = false,
-                        onClick = {
-                            scope.launch {
-                                val ok = viewModel.deleteCurrentEvent()
-                                if (ok) {
-                                    navController.popBackStack()
+                    item {
+                        EventPicker(
+                            date = if (isPickingFrom) startDate else endDate,
+                            time = if (isPickingFrom) startTime else endTime,
+                            isAllDay = isAllDay,
+                            onDateChange = {
+                                if (isPickingFrom) {
+                                    viewModel.updateDraftStartDate(it)
+                                    if (endDate.isBefore(it)) viewModel.updateDraftEndDate(it)
                                 } else {
-                                    android.widget.Toast.makeText(context, "Could not delete event.", android.widget.Toast.LENGTH_SHORT).show()
+                                    viewModel.updateDraftEndDate(it)
+                                    if (it.isBefore(startDate)) viewModel.updateDraftStartDate(it)
+                                }
+                            },
+                            onTimeChange = {
+                                if (isPickingFrom) {
+                                    viewModel.updateDraftStartTime(it)
+                                    if (startDate == endDate && (endTime.isBefore(it) || endTime == it)) {
+                                        viewModel.updateDraftEndTime(it.plusHours(1))
+                                    }
+                                } else {
+                                    viewModel.updateDraftEndTime(it)
+                                    if (startDate == endDate && it.isBefore(startTime)) {
+                                        viewModel.updateDraftStartTime(it.minusHours(1))
+                                    }
                                 }
                             }
-                        },
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(48.dp))*/
+                    item { Spacer(modifier = Modifier.height(4.dp)) }
+
+                    item {
+                        OptionRow(
+                            icon = Icons.Outlined.Today,
+                            title = "All-day event",
+                            checked = isAllDay,
+                            onCheckedChange = { viewModel.updateDraftIsAllDay(it) }
+                        )
+                    }
+
+                    item {
+                        HorizontalDividerMMD(
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = Color.Black
+                        )
+                    }
+
+                    item {
+                        OptionRow(
+                            icon = Icons.Outlined.NotificationsNone,
+                            title = reminderOptions.find { it.second == selectedReminderMinutes }?.first
+                                ?: "No reminder",
+                            hasChevron = true,
+                            onClick = { showReminderPicker = true },
+                            enabled = !isAllDay,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+
+                    item {
+                        HorizontalDividerMMD(
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = Color.Black
+                        )
+                    }
+
+                    item {
+                        OptionRow(
+                            icon = Icons.Default.CalendarMonth,
+                            title = selectedCalendar?.let {
+                                "${it.displayName}${if (it.isDavx5) " (DAVx5)" else ""}"
+                            } ?: "Choose calendar",
+                            hasChevron = true,
+                            onClick = { showCalendarPicker = true },
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+
+                    item {
+                        HorizontalDividerMMD(
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = Color.Black
+                        )
+                    }
+
+                    item {
+                        OptionRow(
+                            icon = Icons.Outlined.Description,
+                            title = if (eventNote.isEmpty()) {
+                                "Add notes"
+                            } else {
+                                val displayNote = eventNote.replace("\n", " ")
+                                if (displayNote.length > 10) "${displayNote.take(10)}..." else displayNote
+                            },
+                            hasChevron = true,
+                            onClick = { navController.navigate("notes") },
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                }
+                if (isScrollable) {
+                    EInkScrollbar(state = listState, scope = scope)
+                }
             }
         }
 
@@ -348,6 +383,12 @@ private fun ReminderPickerOverlay(
     onPick: (Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
+    val canScrollBackward by remember { derivedStateOf { listState.canScrollBackward } }
+    val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color.White
@@ -373,28 +414,40 @@ private fun ReminderPickerOverlay(
 
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
-            ) {
-                options.forEach { (label, minutes) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPick(minutes) }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        TextMMD(label, fontSize = 18.sp, fontWeight = if (selectedMinutes == minutes) FontWeight.Bold else FontWeight.Normal)
-                        RadioButtonMMD(
-                            selected = selectedMinutes == minutes,
-                            onClick = { onPick(minutes) }
-                        )
+            Row(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .eInkVerticalScroll(listState, scope, isScrollable)
+                        .padding(16.dp),
+                    userScrollEnabled = false
+                ) {
+                    items(options) { (label, minutes) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(minutes) }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextMMD(
+                                label,
+                                fontSize = 18.sp,
+                                fontWeight = if (selectedMinutes == minutes) FontWeight.Bold else FontWeight.Normal
+                            )
+                            RadioButtonMMD(
+                                selected = selectedMinutes == minutes,
+                                onClick = { onPick(minutes) }
+                            )
+                        }
+                        HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
                     }
-                    HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
+                }
+                if (isScrollable) {
+                    EInkScrollbar(state = listState, scope = scope)
                 }
             }
         }
@@ -408,6 +461,12 @@ private fun CalendarPickerOverlay(
     onPick: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
+    val canScrollBackward by remember { derivedStateOf { listState.canScrollBackward } }
+    val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color.White
@@ -433,39 +492,53 @@ private fun CalendarPickerOverlay(
 
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
-            ) {
-                if (calendars.isEmpty()) {
-                    TextMMD("No writable calendars found. Sign in via DAVx5 or Google to add one.")
-                } else {
-                    calendars.forEach { cal ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPick(cal.id) }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                TextMMD(cal.displayName, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                TextMMD(
-                                    "${cal.accountName}${if (cal.isDavx5) " · DAVx5" else ""}",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
+            Row(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .eInkVerticalScroll(listState, scope, isScrollable)
+                        .padding(16.dp),
+                    userScrollEnabled = false
+                ) {
+                    if (calendars.isEmpty()) {
+                        item {
+                            TextMMD("No writable calendars found. Sign in via DAVx5 or Google to add one.")
+                        }
+                    } else {
+                        items(calendars) { cal ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onPick(cal.id) }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    TextMMD(
+                                        cal.displayName,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    TextMMD(
+                                        "${cal.accountName}${if (cal.isDavx5) " · DAVx5" else ""}",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                                RadioButtonMMD(
+                                    selected = cal.id == selectedId,
+                                    onClick = { onPick(cal.id) }
                                 )
                             }
-                            RadioButtonMMD(
-                                selected = cal.id == selectedId,
-                                onClick = { onPick(cal.id) }
-                            )
+                            HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
                         }
-                        HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
                     }
+                }
+                if (isScrollable) {
+                    EInkScrollbar(state = listState, scope = scope)
                 }
             }
         }

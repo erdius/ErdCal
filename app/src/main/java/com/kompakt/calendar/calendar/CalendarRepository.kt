@@ -1,4 +1,4 @@
-package com.example.calendar.calendar
+package com.kompakt.calendar.calendar
 
 import android.Manifest
 import android.content.ContentResolver

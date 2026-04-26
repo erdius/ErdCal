@@ -1,10 +1,12 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -22,8 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.calendar.calendar.CalendarEvent
-import com.mudita.mmd.components.lazy.LazyColumnMMD
+import com.kompakt.calendar.calendar.CalendarEvent
+import com.kompakt.calendar.ui.EInkScrollbar
+import com.kompakt.calendar.ui.eInkVerticalScroll
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import kotlinx.coroutines.launch
@@ -41,6 +44,11 @@ fun EventSearchScreen(
     var isSearching by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+
+    val listState = rememberLazyListState()
+    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
+    val canScrollBackward by remember { derivedStateOf { listState.canScrollBackward } }
+    val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
 
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotBlank()) {
@@ -136,15 +144,27 @@ fun EventSearchScreen(
                     TextMMD("No events found", fontSize = 16.sp, color = Color.Gray)
                 }
             } else {
-                LazyColumnMMD(modifier = Modifier.fillMaxSize()) {
-                    items(results) { event ->
-                        EventSearchResultItem(
-                            event = event,
-                            onClick = { navController.navigate("event_detail/${event.id}") }
-                        )
+                Row(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .eInkVerticalScroll(listState, scope, isScrollable),
+                        userScrollEnabled = false
+                    ) {
+                        items(results) { event ->
+                            EventSearchResultItem(
+                                event = event,
+                                onClick = { navController.navigate("event_detail/${event.id}") }
+                            )
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(32.dp))
+                        }
                     }
-                    item {
-                        Spacer(modifier = Modifier.height(32.dp))
+                    if (isScrollable) {
+                        EInkScrollbar(state = listState, scope = scope)
                     }
                 }
             }

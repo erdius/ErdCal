@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Allow showing alerts over other apps -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <!-- Exact alarms without user grant for calendar apps (API 33+) -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- Fallback exact alarm permission for API 31–32 -->
@@ -14,7 +17,7 @@
         android:maxSdkVersion="32" />
 
     <application
-        android:name="com.example.helloworld.MyApplication"
+        android:name="com.kompakt.calendar.MyApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -23,7 +26,7 @@
         android:theme="@style/Theme.App.Starting">
 
         <activity
-            android:name="com.example.helloworld.MainActivity"
+            android:name="com.kompakt.calendar.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.HelloWorld">
@@ -34,17 +37,29 @@
         </activity>
 
         <receiver
-            android:name="com.example.helloworld.NotificationReceiver"
-            android:exported="false" />
+            android:name="com.kompakt.calendar.NotificationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.EVENT_REMINDER" />
+                <data android:scheme="content" />
+            </intent-filter>
+        </receiver>
 
         <receiver
-            android:name="com.example.helloworld.BootReceiver"
+            android:name="com.kompakt.calendar.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+
+        <activity
+            android:name="com.kompakt.calendar.EventAlertActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showOnLockScreen="true"
+            android:theme="@style/Theme.HelloWorld" />
 
     </application>
 </manifest>

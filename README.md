@@ -11,11 +11,12 @@ Events sync through the standard Android Calendar Provider — no accounts are s
 ---
 
 <p float="left">
-  <img src="screenshots/landing_screen.png" width="19%" />
-  <img src="screenshots/month_view.png" width="19%" />
-  <img src="screenshots/day_view.png" width="19%" />
-  <img src="screenshots/agenda_view.png" width="19%" />
-  <img src="screenshots/add_event.png" width="19%" />
+  <img src="screenshots/landing_screen.png" width="16%" />
+  <img src="screenshots/month_view.png" width="16%" />
+  <img src="screenshots/day_view.png" width="16%" />
+  <img src="screenshots/agenda_view.png" width="16%" />
+  <img src="screenshots/add_event.png" width="16%" />
+  <img src="screenshots/notificiation.png" width="16%">
 </p>
 
 ---
@@ -64,6 +65,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - **Agenda view** — upcoming events for the next 3 months, jump-scroll list with e-ink scrollbar
 - **Event creation & editing** — title, start/end date+time, all-day toggle, reminder, calendar picker, notes
 - **Notifications** — own AlarmManager-based alarm stack; fires a reminder notification N minutes before and a second notification at event start; survives device reboot
+- **Full-screen event alert** — at event start time a dedicated full-screen activity launches, waking the screen and bypassing the lock screen so the alert is visible even when the phone is sleeping
 - **Search** — full-text search across title, description, and location
 - **Settings** — calendar visibility toggles, default calendar, default reminder, week start day, week numbers
 - **E-ink optimised** — no animations, jump-based scrolling throughout, high-contrast monochromatic UI

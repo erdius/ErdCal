@@ -1,4 +1,4 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import android.app.Application
 import android.app.NotificationChannel
@@ -8,8 +8,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
-import com.example.calendar.calendar.CalendarRepository
-import com.example.calendar.data.UserPreferencesRepository
+import com.kompakt.calendar.calendar.CalendarRepository
+import com.kompakt.calendar.data.UserPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

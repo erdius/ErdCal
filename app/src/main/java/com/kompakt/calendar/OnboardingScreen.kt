@@ -49,7 +49,7 @@ fun OnboardingScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    
+
     var calendarGranted by remember { mutableStateOf(false) }
     var notificationsGranted by remember { mutableStateOf(false) }
     var alarmsGranted by remember { mutableStateOf(false) }
@@ -87,7 +87,7 @@ fun OnboardingScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
                     .navigationBarsPadding()
             ) {
                 ButtonMMD(
@@ -99,7 +99,7 @@ fun OnboardingScreen(
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
                     enabled = canFinish,
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -127,31 +127,32 @@ fun OnboardingScreen(
                     .fillMaxHeight()
                     .eInkVerticalScroll(listState, scope, isScrollable),
                 userScrollEnabled = false,
-                contentPadding = PaddingValues(16.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 item {
-                    Spacer(modifier = Modifier.height(32.dp))
-                    TextMMD(
-                        text = "Welcome to KompaktCalendar",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 34.sp
-                    )
                     Spacer(modifier = Modifier.height(16.dp))
                     TextMMD(
-                        text = "To provide a seamless e-ink experience and reliable reminders, we need a few permissions.",
-                        fontSize = 16.sp,
-                        color = Color.DarkGray,
-                        textAlign = TextAlign.Center
+                        text = "Welcome",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextMMD(
+                        text = "We need these permissions for reliable e-ink reminders.",
+                        fontSize = 14.sp,
+                        color = Color.DarkGray,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 item {
                     OnboardingPermissionRow(
                         title = "Calendar Access",
-                        description = "Required to see and manage your events.",
+                        description = "Manage your events.",
                         isGranted = calendarGranted,
                         isRequired = true,
                         onClick = {
@@ -164,7 +165,7 @@ fun OnboardingScreen(
                 item {
                     OnboardingPermissionRow(
                         title = "Notifications",
-                        description = "To show you reminders for upcoming events.",
+                        description = "Event reminders.",
                         isGranted = notificationsGranted,
                         onClick = {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -183,7 +184,7 @@ fun OnboardingScreen(
                 item {
                     OnboardingPermissionRow(
                         title = "Exact Alarms",
-                        description = "Ensures reminders fire precisely on time, even in sleep mode.",
+                        description = "Precise timing.",
                         isGranted = alarmsGranted,
                         onClick = {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -197,8 +198,8 @@ fun OnboardingScreen(
 
                 item {
                     OnboardingPermissionRow(
-                        title = "Display over other apps",
-                        description = "Allows full-screen alerts to wake up your screen for important events.",
+                        title = "Overlay",
+                        description = "Full-screen alerts.",
                         isGranted = overlayGranted,
                         onClick = {
                             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
@@ -210,18 +211,14 @@ fun OnboardingScreen(
 
                 item {
                     OnboardingPermissionRow(
-                        title = "Battery Optimization",
-                        description = "Prevents the system from delaying reminders to save power.",
+                        title = "Battery",
+                        description = "No delayed alerts.",
                         isGranted = batteryGranted,
                         onClick = {
                             val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                             context.startActivity(intent)
                         }
                     )
-                }
-                
-                item {
-                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
 
@@ -244,25 +241,25 @@ private fun OnboardingPermissionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(vertical = 16.dp),
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextMMD(text = title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                TextMMD(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 if (isRequired && !isGranted) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    TextMMD(text = "(Required)", fontSize = 12.sp, color = Color.Red)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    TextMMD(text = "(Req.)", fontSize = 11.sp, color = Color.Black)
                 }
             }
-            TextMMD(text = description, fontSize = 14.sp, color = Color.Gray, lineHeight = 18.sp)
+            TextMMD(text = description, fontSize = 13.sp, color = Color.Gray)
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Icon(
             imageVector = if (isGranted) Icons.Default.CheckCircle else if (isRequired) Icons.Default.Error else Icons.Default.Warning,
             contentDescription = null,
-            tint = if (isGranted) Color(0xFF4CAF50) else if (isRequired) Color.Red else Color(0xFFFFA000),
-            modifier = Modifier.size(32.dp)
+            tint = Color.Black,
+            modifier = Modifier.size(28.dp)
         )
     }
 }

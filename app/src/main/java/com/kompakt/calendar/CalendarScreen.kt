@@ -1,4 +1,4 @@
-package com.example.calendar
+package com.kompakt.calendar
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
