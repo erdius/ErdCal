@@ -16,7 +16,7 @@ Events sync through the standard Android Calendar Provider — no accounts are s
   <img src="screenshots/day_view.png" width="16%" />
   <img src="screenshots/agenda_view.png" width="16%" />
   <img src="screenshots/add_event.png" width="16%" />
-  <img src="screenshots/notificiation.png" width="16%">
+  <img src="screenshots/notification.png" width="16%">
 </p>
 
 ---
