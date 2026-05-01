@@ -1,13 +1,11 @@
 package com.kompakt.calendar
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -20,15 +18,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.kompakt.calendar.ui.common.DashedDivider
 import com.mudita.mmd.components.buttons.FloatingActionButtonMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
@@ -105,7 +103,7 @@ fun CalendarScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 0.dp)
             ) {
                 if (currentMonth != YearMonth.now()) {
                     FloatingActionButtonMMD(
@@ -147,14 +145,33 @@ fun CalendarScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
                 .padding(paddingValues)
         ) {
             CalendarPermissionGate(
                 hasPermission = hasPermission,
                 onPermissionGranted = { viewModel.refreshPermission() }
             ) {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(currentMonth) {
+                            var totalDrag = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { totalDrag = 0f },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    totalDrag += dragAmount
+                                },
+                                onDragEnd = {
+                                    if (totalDrag > 50) {
+                                        viewModel.previousMonth()
+                                    } else if (totalDrag < -50) {
+                                        viewModel.nextMonth()
+                                    }
+                                }
+                            )
+                        }
+                ) {
                     Spacer(modifier = Modifier.padding(vertical = 4.dp))
                     DaysOfWeekHeader(startDayMonday = startDayMonday, showWeekNumbers = showWeekNumbers)
 
@@ -277,7 +294,7 @@ fun CalendarGrid(
                 }
             }
             if (index < weeks.size - 1) {
-                DashedDivider(showWeekNumbers = showWeekNumbers)
+                WeekRowDivider(showWeekNumbers = showWeekNumbers)
             }
         }
     }
@@ -288,7 +305,7 @@ fun WeekNumberCell(firstDayOfWeek: LocalDate) {
     // ISO-8601 week number
     val weekFields = java.time.temporal.WeekFields.ISO
     val weekNum = firstDayOfWeek.get(weekFields.weekOfWeekBasedYear())
-    
+
     Box(
         modifier = Modifier
             .width(32.dp)
@@ -297,7 +314,6 @@ fun WeekNumberCell(firstDayOfWeek: LocalDate) {
     ) {
         TextMMD(
             text = weekNum.toString(),
-            color = Color.Gray,
             fontSize = 12.sp,
             textAlign = TextAlign.Center
         )
@@ -305,24 +321,12 @@ fun WeekNumberCell(firstDayOfWeek: LocalDate) {
 }
 
 @Composable
-fun DashedDivider(showWeekNumbers: Boolean) {
+fun WeekRowDivider(showWeekNumbers: Boolean) {
     Row(modifier = Modifier.fillMaxWidth()) {
         if (showWeekNumbers) {
             Spacer(modifier = Modifier.width(32.dp))
         }
-        Canvas(
-            Modifier
-                .weight(1f)
-                .height(1.dp)
-        ) {
-            drawLine(
-                color = Color.Black,
-                start = Offset(0f, 0f),
-                end = Offset(size.width, 0f),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 6f), 0f),
-                strokeWidth = 1.dp.toPx()
-            )
-        }
+        DashedDivider(modifier = Modifier.weight(1f))
     }
 }
 
@@ -357,7 +361,7 @@ fun DayCell(
             ) {
                 TextMMD(
                     text = date.dayOfMonth.toString(),
-                    color = if (isActiveDay) Color.White else (if (isCurrentMonth) Color.Black else Color.LightGray),
+                    color = if (isActiveDay) Color.White else (if (isCurrentMonth) Color.Black else MaterialTheme.colorScheme.outline),
                     fontWeight = if (isActiveDay || isCurrentMonth) FontWeight.Bold else FontWeight.Normal,
                     fontSize = 17.sp
                 )

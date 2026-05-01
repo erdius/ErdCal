@@ -1,6 +1,5 @@
 package com.kompakt.calendar
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -49,25 +48,21 @@ fun NotesScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
                 .padding(paddingValues)
         ) {
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
 
             TextField(
                 value = note,
                 onValueChange = { note = it },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.White),
-                placeholder = { TextMMD("Enter your notes here...", color = Color.LightGray) },
+                modifier = Modifier.fillMaxSize(),
+                placeholder = { TextMMD("Enter your notes here...", color = MaterialTheme.colorScheme.outline) },
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent
                 ),
-                textStyle = TextStyle(fontSize = 18.sp, color = Color.Black)
+                textStyle = TextStyle(fontSize = 18.sp)
             )
         }
     }

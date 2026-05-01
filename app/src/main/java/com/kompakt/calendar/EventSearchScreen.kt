@@ -1,11 +1,10 @@
 package com.kompakt.calendar
 
 import android.text.format.DateFormat
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.kompakt.calendar.calendar.CalendarEvent
 import com.kompakt.calendar.ui.EInkScrollbar
+import com.kompakt.calendar.ui.common.DashedDivider
 import com.kompakt.calendar.ui.eInkVerticalScroll
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
@@ -74,7 +74,7 @@ fun EventSearchScreen(
                     TextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { TextMMD("Search events...", color = Color.LightGray) },
+                        placeholder = { TextMMD("Search events...", color = MaterialTheme.colorScheme.outline) },
                         modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -104,15 +104,8 @@ fun EventSearchScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
                 .padding(paddingValues)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(Color.Black)
-            )
 
             if (searchQuery.isBlank()) {
                 Box(
@@ -122,9 +115,8 @@ fun EventSearchScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     TextMMD(
-                        "Search for events by title, location, or notes",
-                        fontSize = 16.sp,
-                        color = Color.Gray
+                        "Search for events by title or notes",
+                        fontSize = 16.sp
                     )
                 }
             } else if (isSearching) {
@@ -141,7 +133,7 @@ fun EventSearchScreen(
                         .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    TextMMD("No events found", fontSize = 16.sp, color = Color.Gray)
+                    TextMMD("No events found", fontSize = 16.sp)
                 }
             } else {
                 Row(modifier = Modifier.fillMaxSize()) {
@@ -153,11 +145,14 @@ fun EventSearchScreen(
                             .eInkVerticalScroll(listState, scope, isScrollable),
                         userScrollEnabled = false
                     ) {
-                        items(results) { event ->
+                        itemsIndexed(results) { index, event ->
                             EventSearchResultItem(
                                 event = event,
                                 onClick = { navController.navigate("event_detail/${event.id}") }
                             )
+                            if (index < results.size - 1) {
+                                DashedDivider(modifier = Modifier.padding(start = 16.dp))
+                            }
                         }
                         item {
                             Spacer(modifier = Modifier.height(32.dp))
@@ -182,38 +177,29 @@ private fun EventSearchResultItem(event: CalendarEvent, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            TextMMD(
-                text = event.title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            TextMMD(
-                text = if (event.allDay)
-                    event.start.toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.US))
-                else
-                    event.start.format(DateTimeFormatter.ofPattern("EEE, d MMM · $timePattern", Locale.US)),
-                fontSize = 12.sp,
-                color = Color.DarkGray
-            )
-            if (!event.location.isNullOrBlank()) {
-                TextMMD(
-                    text = event.location!!,
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    maxLines = 1
-                )
-            }
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Color.LightGray)
-                .padding(top = 8.dp)
+        TextMMD(
+            text = event.title,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
         )
+        TextMMD(
+            text = if (event.allDay)
+                event.start.toLocalDate().format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.US))
+            else
+                event.start.format(DateTimeFormatter.ofPattern("EEE, d MMM · $timePattern", Locale.US)),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        if (!event.location.isNullOrBlank()) {
+            TextMMD(
+                text = event.location!!,
+                fontSize = 12.sp,
+                maxLines = 1,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
     }
 }

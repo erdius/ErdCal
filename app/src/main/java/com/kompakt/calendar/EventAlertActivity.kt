@@ -7,7 +7,6 @@ import android.text.format.DateFormat
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -20,14 +19,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kompakt.calendar.calendar.CalendarEvent
+import com.kompakt.calendar.ui.common.DashedDivider
 import com.kompakt.calendar.ui.theme.KompaktCalendarTheme
 import com.mudita.mmd.components.buttons.ButtonMMD
 import com.mudita.mmd.components.text.TextMMD
@@ -53,6 +51,9 @@ class EventAlertActivity : ComponentActivity() {
         }
 
         val eventId = intent.getLongExtra("event_id", -1L)
+        val startMs = intent.getLongExtra("start_ms", -1L)
+        val endMs = intent.getLongExtra("end_ms", -1L)
+
         if (eventId == -1L) {
             finish()
             return
@@ -68,8 +69,21 @@ class EventAlertActivity : ComponentActivity() {
 
                 LaunchedEffect(eventId) {
                     scope.launch {
-                        event = repo.getEventById(eventId)
-                        if (event == null) finish()
+                        val baseEvent = repo.getEventById(eventId)
+                        if (baseEvent == null) {
+                            finish()
+                            return@launch
+                        }
+
+                        // Override times if specific instance times were passed
+                        if (startMs != -1L && endMs != -1L) {
+                            val zone = java.time.ZoneId.systemDefault()
+                            val instanceStart = java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(startMs), zone)
+                            val instanceEnd = java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(endMs), zone)
+                            event = baseEvent.copy(start = instanceStart, end = instanceEnd)
+                        } else {
+                            event = baseEvent
+                        }
                     }
                 }
 
@@ -105,8 +119,7 @@ class EventAlertActivity : ComponentActivity() {
                 Icon(
                     Icons.Default.Close,
                     contentDescription = "Close",
-                    modifier = Modifier.size(36.dp),
-                    tint = Color.Black
+                    modifier = Modifier.size(36.dp)
                 )
             }
 
@@ -127,8 +140,7 @@ class EventAlertActivity : ComponentActivity() {
                     Icon(
                         Icons.Default.CalendarToday,
                         contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = Color.Black
+                        modifier = Modifier.size(48.dp)
                     )
                 }
 
@@ -165,20 +177,7 @@ class EventAlertActivity : ComponentActivity() {
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Dashed Divider
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                ) {
-                    drawLine(
-                        color = Color.Black,
-                        start = Offset(0f, 0f),
-                        end = Offset(size.width, 0f),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f), 0f),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                }
+                DashedDivider(dashWidth = 5.dp, dashGap = 5.dp)
 
                 Spacer(modifier = Modifier.height(120.dp))
             }

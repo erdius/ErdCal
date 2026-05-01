@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Base application theme -->
-    <style name="Theme.HelloWorld" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.KompaktCalendar" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Primary brand color -->
         <item name="colorPrimary">@color/purple_200</item>
         <item name="colorPrimaryContainer">@color/purple_700</item>

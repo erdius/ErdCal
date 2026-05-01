@@ -98,6 +98,12 @@ class MainActivity : ComponentActivity() {
                                     viewModel = calendarViewModel
                                 )
                             }
+                            composable("location") {
+                                LocationScreen(
+                                    navController = navController,
+                                    viewModel = calendarViewModel
+                                )
+                            }
                             composable(
                                 route = "event_detail/{eventId}",
                                 arguments = listOf(

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,7 +75,7 @@ fun EInkScrollbar(
                 Icons.Default.KeyboardArrowUp,
                 contentDescription = "Scroll up",
                 modifier = Modifier.size(20.dp),
-                tint = if (canScrollBackward) Color.Black else Color.LightGray
+                tint = if (canScrollBackward) Color.Black else MaterialTheme.colorScheme.outline
             )
         }
 
@@ -84,18 +85,40 @@ fun EInkScrollbar(
                 .weight(1f)
                 .border(0.5.dp, Color.Black, RoundedCornerShape(4.dp))
         ) {
-            val totalItems = state.layoutInfo.totalItemsCount
-            val visibleItemsCount = state.layoutInfo.visibleItemsInfo.size
-            val firstVisibleIndex = state.firstVisibleItemIndex
-            
-            val safeTotal = totalItems.coerceAtLeast(1)
-            val sliderFraction = (visibleItemsCount.toFloat() / safeTotal).coerceIn(0.1f, 1f)
+            val layoutInfo = state.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            if (visibleItems.isEmpty()) return@Canvas
+
+            val totalItems = layoutInfo.totalItemsCount
+            val firstItem = visibleItems.first()
+            val lastItem = visibleItems.last()
+
+            val viewportSize = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+            if (viewportSize <= 0) return@Canvas
+
+            // Estimate total content height based on average item size
+            val visibleItemsHeight = lastItem.offset + lastItem.size - firstItem.offset
+            val averageItemSize = visibleItemsHeight.toFloat() / visibleItems.size
+            val estimatedTotalSize = (averageItemSize * totalItems)
+                .coerceAtLeast(viewportSize.toFloat())
+
+            // If we can scroll, we want the thumb to be smaller than the track
+            val isActuallyScrollable = state.canScrollForward || state.canScrollBackward
+            val sliderFraction = if (isActuallyScrollable) {
+                (viewportSize.toFloat() / estimatedTotalSize).coerceIn(0.1f, 0.9f)
+            } else {
+                1f
+            }
+
             val sliderHeight = (size.height * sliderFraction).coerceAtLeast(16.dp.toPx())
             val maxOffset = size.height - sliderHeight
-            val scrollFraction = if (safeTotal > visibleItemsCount)
-                firstVisibleIndex.toFloat() / (safeTotal - visibleItemsCount).toFloat()
-            else 0f
-            val sliderTop = (maxOffset * scrollFraction).coerceIn(0f, maxOffset)
+
+            // Smooth scroll fraction calculation
+            val currentScrollOffset = state.firstVisibleItemIndex * averageItemSize + state.firstVisibleItemScrollOffset
+            val maxScrollOffset = (estimatedTotalSize - viewportSize).coerceAtLeast(1f)
+            val scrollFraction = (currentScrollOffset / maxScrollOffset).coerceIn(0f, 1f)
+
+            val sliderTop = maxOffset * scrollFraction
 
             drawRoundRect(
                 color = Color.Black,
@@ -117,7 +140,7 @@ fun EInkScrollbar(
                 Icons.Default.KeyboardArrowDown,
                 contentDescription = "Scroll down",
                 modifier = Modifier.size(20.dp),
-                tint = if (canScrollForward) Color.Black else Color.LightGray
+                tint = if (canScrollForward) Color.Black else MaterialTheme.colorScheme.outline
             )
         }
     }

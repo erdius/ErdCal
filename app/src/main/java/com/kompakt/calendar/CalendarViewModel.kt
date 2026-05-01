@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -63,8 +65,12 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     var draftStartTime = MutableStateFlow(java.time.LocalTime.now().withMinute(0).plusHours(1))
     var draftEndTime = MutableStateFlow(java.time.LocalTime.now().withMinute(0).plusHours(2))
     var draftIsAllDay = MutableStateFlow(false)
+    var draftLocation = MutableStateFlow("")
     var draftCalendarId = MutableStateFlow<Long?>(null)
     var draftReminderMinutes = MutableStateFlow<Int?>(5)
+    var draftRrule = MutableStateFlow<String?>(null)
+    var draftRruleUntil = MutableStateFlow<LocalDate?>(null)
+    var draftRruleDays = MutableStateFlow<Set<Int>>(emptySet())
 
     fun updateDraftTitle(v: String) { draftTitle.value = v }
     fun updateDraftStartDate(v: LocalDate) { draftStartDate.value = v }
@@ -72,8 +78,12 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     fun updateDraftStartTime(v: java.time.LocalTime) { draftStartTime.value = v }
     fun updateDraftEndTime(v: java.time.LocalTime) { draftEndTime.value = v }
     fun updateDraftIsAllDay(v: Boolean) { draftIsAllDay.value = v }
+    fun updateDraftLocation(v: String) { draftLocation.value = v }
     fun updateDraftCalendarId(v: Long?) { draftCalendarId.value = v }
     fun updateDraftReminderMinutes(v: Int?) { draftReminderMinutes.value = v }
+    fun updateDraftRrule(v: String?) { draftRrule.value = v }
+    fun updateDraftRruleUntil(v: LocalDate?) { draftRruleUntil.value = v }
+    fun updateDraftRruleDays(v: Set<Int>) { draftRruleDays.value = v }
 
     val calendars: StateFlow<List<CalendarAccount>> =
         flow {
@@ -82,39 +92,16 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Events for the currently shown month. Refreshes whenever month or DB changes. */
-    val monthEvents: StateFlow<List<CalendarEvent>> =
-        combine(_currentMonth, _hasPermission, repo.changes.onStart { emit(Unit) }) { month, granted, _ ->
-            month to granted
-        }.flatMapLatest { (month, granted) ->
-            flow {
-                if (granted) emit(repo.getEventsForMonth(month)) else emit(emptyList())
-            }.flowOn(Dispatchers.IO)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val _monthEvents = MutableStateFlow<List<CalendarEvent>>(emptyList())
+    val monthEvents: StateFlow<List<CalendarEvent>> = _monthEvents.asStateFlow()
 
     /** Events on the currently selected day. */
-    val dayEvents: StateFlow<List<CalendarEvent>> =
-        combine(_selectedDate, _hasPermission, repo.changes.onStart { emit(Unit) }) { date, granted, _ ->
-            date to granted
-        }.flatMapLatest { (date, granted) ->
-            flow {
-                if (granted) emit(repo.getEventsForDate(date)) else emit(emptyList())
-            }.flowOn(Dispatchers.IO)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val _dayEvents = MutableStateFlow<List<CalendarEvent>>(emptyList())
+    val dayEvents: StateFlow<List<CalendarEvent>> = _dayEvents.asStateFlow()
 
     /** Upcoming events for the next 3 months. */
-    val upcomingEvents: StateFlow<List<CalendarEvent>> =
-        combine(_hasPermission, repo.changes.onStart { emit(Unit) }) { granted, _ ->
-            granted
-        }.flatMapLatest { granted ->
-            flow {
-                if (granted) {
-                    val today = LocalDate.now()
-                    emit(repo.getEventsBetween(today, today.plusMonths(3)))
-                } else {
-                    emit(emptyList())
-                }
-            }.flowOn(Dispatchers.IO)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val _upcomingEvents = MutableStateFlow<List<CalendarEvent>>(emptyList())
+    val upcomingEvents: StateFlow<List<CalendarEvent>> = _upcomingEvents.asStateFlow()
 
     fun refreshPermission() {
         val granted = repo.hasReadPermission()
@@ -159,6 +146,42 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _calendarsRefresh.value = repo.getCalendars()
         }
+
+        viewModelScope.launch {
+            combine(_currentMonth, _hasPermission, repo.changes.onStart { emit(Unit) }) { m, g, _ -> m to g }
+                .collectLatest { (month, granted) ->
+                    _monthEvents.value = emptyList()
+                    if (granted) {
+                        val events = withContext(Dispatchers.IO) { repo.getEventsForMonth(month) }
+                        _monthEvents.value = events
+                    }
+                }
+        }
+
+        viewModelScope.launch {
+            combine(_selectedDate, _hasPermission, repo.changes.onStart { emit(Unit) }) { d, g, _ -> d to g }
+                .collectLatest { (date, granted) ->
+                    _dayEvents.value = emptyList()
+                    if (granted) {
+                        val events = withContext(Dispatchers.IO) { repo.getEventsForDate(date) }
+                        _dayEvents.value = events
+                    }
+                }
+        }
+
+        viewModelScope.launch {
+            combine(_hasPermission, repo.changes.onStart { emit(Unit) }) { g, _ -> g }
+                .collectLatest { granted ->
+                    _upcomingEvents.value = emptyList()
+                    if (granted) {
+                        val events = withContext(Dispatchers.IO) {
+                            val today = LocalDate.now()
+                            repo.getEventsBetween(today, today.plusMonths(3))
+                        }
+                        _upcomingEvents.value = events
+                    }
+                }
+        }
     }
 
     fun onDateSelected(date: LocalDate) {
@@ -200,8 +223,12 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         draftStartTime.value = time
         draftEndTime.value = time.plusHours(1)
         draftIsAllDay.value = false
+        draftLocation.value = ""
         draftCalendarId.value = null
         draftReminderMinutes.value = 5
+        draftRrule.value = null
+        draftRruleUntil.value = null
+        draftRruleDays.value = emptySet()
     }
 
     fun beginEditEvent(event: CalendarEvent) {
@@ -215,41 +242,102 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         draftStartTime.value = event.start.toLocalTime()
         draftEndTime.value = event.end.toLocalTime()
         draftIsAllDay.value = event.allDay
+        draftLocation.value = event.location ?: ""
         draftCalendarId.value = event.calendarId
         draftReminderMinutes.value = event.reminderMinutes
+        
+        // Parse RRULE for UNTIL and BYDAY
+        var baseRrule = event.rrule
+        var untilDate: LocalDate? = null
+        var selectedDays = emptySet<Int>()
+        
+        if (baseRrule != null) {
+            val parts = baseRrule.split(";")
+            
+            val untilPart = parts.find { it.startsWith("UNTIL=") }
+            if (untilPart != null) {
+                val dateStr = untilPart.substring(6)
+                try {
+                    // Handle both YYYYMMDD and YYYYMMDDTHHMMSSZ
+                    val cleanStr = if (dateStr.contains("T")) dateStr.split("T")[0] else dateStr
+                    if (cleanStr.length >= 8) {
+                        val y = cleanStr.substring(0, 4).toInt()
+                        val m = cleanStr.substring(4, 6).toInt()
+                        val d = cleanStr.substring(6, 8).toInt()
+                        untilDate = LocalDate.of(y, m, d)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("CalendarViewModel", "Failed to parse RRULE UNTIL: $dateStr", e)
+                }
+            }
+            
+            val byDayPart = parts.find { it.startsWith("BYDAY=") }
+            if (byDayPart != null) {
+                val daysStr = byDayPart.substring(6)
+                val dayMap = mapOf("MO" to 1, "TU" to 2, "WE" to 3, "TH" to 4, "FR" to 5, "SA" to 6, "SU" to 7)
+                // Filter out prefixes like 1, 2, -1 which are used for monthly (e.g. 1MO for first Monday)
+                selectedDays = daysStr.split(",").mapNotNull { 
+                    val dayCode = it.trim().takeLast(2).uppercase()
+                    dayMap[dayCode] 
+                }.toSet()
+            }
+            
+            baseRrule = parts.filter { !it.startsWith("UNTIL=") && !it.startsWith("BYDAY=") }.joinToString(";")
+        }
+        
+        draftRrule.value = baseRrule
+        draftRruleUntil.value = untilDate
+        draftRruleDays.value = selectedDays
     }
 
     suspend fun saveEvent(draft: EventDraft, reminderMinutes: Int?): Boolean {
         val cal = draft.calendarId ?: return false
+        
+        var finalRrule = draft.rrule
+        if (finalRrule != null) {
+            if (draft.rruleDays.isNotEmpty() && finalRrule.contains("WEEKLY")) {
+                val dayMap = mapOf(1 to "MO", 2 to "TU", 3 to "WE", 4 to "TH", 5 to "FR", 6 to "SA", 7 to "SU")
+                val byDay = draft.rruleDays.sorted().mapNotNull { dayMap[it] }.joinToString(",")
+                finalRrule = "$finalRrule;BYDAY=$byDay"
+            }
+            
+            if (draft.rruleUntil != null) {
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T235959Z'")
+                val untilStr = draft.rruleUntil.format(formatter)
+                finalRrule = "$finalRrule;UNTIL=$untilStr"
+            }
+        }
+
         val ne = CalendarRepository.NewEvent(
             calendarId = cal,
             title = draft.title.ifBlank { "(No title)" },
             description = draft.description.ifBlank { null },
-            location = null,
+            location = draft.location.ifBlank { null },
             start = draft.startDate.atTime(draft.startTime),
             end = draft.endDate.atTime(draft.endTime),
             allDay = draft.allDay,
-            reminderMinutes = reminderMinutes
+            reminderMinutes = reminderMinutes,
+            rrule = finalRrule
         )
         val editId = _editingEventId.value
         return if (editId != null) {
             val ok = repo.updateEvent(editId, ne)
             if (ok) {
                 NotificationScheduler.cancelEventNotifications(getApplication(), editId)
-                if (!draft.allDay) {
-                    val startMs = ne.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                    NotificationScheduler.scheduleEventNotifications(
-                        getApplication(), editId, ne.title, startMs, reminderMinutes
-                    )
-                }
+                val startMs = ne.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                val endMs = ne.end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                NotificationScheduler.scheduleEventNotifications(
+                    getApplication(), editId, ne.title, startMs, endMs, reminderMinutes
+                )
             }
             ok
         } else {
             val id = repo.insertEvent(ne)
-            if (id != null && !draft.allDay) {
+            if (id != null) {
                 val startMs = ne.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                val endMs = ne.end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 NotificationScheduler.scheduleEventNotifications(
-                    getApplication(), id, ne.title, startMs, reminderMinutes
+                    getApplication(), id, ne.title, startMs, endMs, reminderMinutes
                 )
             }
             id != null
@@ -313,7 +401,11 @@ data class EventDraft(
     val startTime: java.time.LocalTime = java.time.LocalTime.now().withMinute(0).plusHours(1),
     val endTime: java.time.LocalTime = java.time.LocalTime.now().withMinute(0).plusHours(2),
     val allDay: Boolean = false,
+    val location: String = "",
     val calendarId: Long? = null,
     val description: String = "",
-    val reminderMinutes: Int? = null
+    val reminderMinutes: Int? = null,
+    val rrule: String? = null,
+    val rruleUntil: LocalDate? = null,
+    val rruleDays: Set<Int> = emptySet()
 )

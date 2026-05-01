@@ -9,7 +9,6 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Icon
 import com.mudita.mmd.components.buttons.ButtonMMD
@@ -19,7 +18,6 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -73,7 +71,6 @@ fun CalendarPermissionGate(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -81,8 +78,7 @@ fun CalendarPermissionGate(
             Icon(
                 Icons.Default.CalendarMonth,
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = Color.Black
+                modifier = Modifier.size(64.dp)
             )
             Spacer(Modifier.height(24.dp))
             TextMMD(
@@ -97,8 +93,7 @@ fun CalendarPermissionGate(
                         "synced via DAVx5 (CalDAV), Google, or Exchange. Grant calendar " +
                         "access to continue.",
                 fontSize = 14.sp,
-                textAlign = TextAlign.Center,
-                color = Color.DarkGray
+                textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(32.dp))
                 Box(
@@ -158,7 +153,7 @@ fun CalendarPermissionGate(
                             TextMMD(
                                 "To ensure notifications arrive on time, please disable battery optimization for this app.",
                                 fontSize = 12.sp,
-                                color = Color.Red,
+                                fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center
                             )
                         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExact) {
@@ -166,7 +161,7 @@ fun CalendarPermissionGate(
                             TextMMD(
                                 "Note: Android 12 requires explicit permission to schedule exact event reminders.",
                                 fontSize = 12.sp,
-                                color = Color.Red,
+                                fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -178,7 +173,6 @@ fun CalendarPermissionGate(
                         "(Nextcloud, Posteo, mailbox.org, …). Once a CalDAV account is added, " +
                         "its calendars appear here automatically.",
                 fontSize = 12.sp,
-                color = Color.Gray,
                 textAlign = TextAlign.Center
             )
         }

@@ -12,6 +12,9 @@ import com.kompakt.calendar.calendar.CalendarRepository
 import com.kompakt.calendar.data.UserPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MyApplication : Application() {
@@ -48,6 +51,9 @@ class MyApplication : Application() {
 
     private var isObserverRegistered = false
 
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var rescheduleJob: Job? = null
+
     fun registerCalendarObserver() {
         if (isObserverRegistered) return
         try {
@@ -57,8 +63,10 @@ class MyApplication : Application() {
                 object : ContentObserver(Handler(Looper.getMainLooper())) {
                     override fun onChange(selfChange: Boolean) {
                         calendarRepository.notifyChanged()
-                        // Reschedule notifications when calendar data changes (e.g. sync finishes)
-                        CoroutineScope(Dispatchers.IO).launch {
+                        // Debounce reschedules while a sync is fanning out many onChange events.
+                        rescheduleJob?.cancel()
+                        rescheduleJob = appScope.launch {
+                            delay(1500)
                             NotificationScheduler.rescheduleAll(this@MyApplication)
                         }
                     }

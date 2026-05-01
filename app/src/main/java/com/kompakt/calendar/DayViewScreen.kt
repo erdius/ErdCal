@@ -34,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.kompakt.calendar.calendar.CalendarEvent
 import com.mudita.mmd.components.buttons.FloatingActionButtonMMD
+import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import java.time.LocalDate
@@ -71,7 +72,6 @@ fun DayViewScreen(
                             TextMMD(
                                 text = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()),
                                 fontSize = 12.sp,
-                                color = Color.Black,
                                 lineHeight = 12.sp
                             )
                             TextMMD(
@@ -110,7 +110,8 @@ fun DayViewScreen(
                 onClick = {
                     viewModel.beginNewEvent()
                     navController.navigate("add_event?fromCalendar=false")
-                }
+                },
+                modifier = Modifier.padding(end = 0.dp, bottom = 8.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Event", modifier = Modifier.size(32.dp))
             }
@@ -119,7 +120,6 @@ fun DayViewScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
                 .padding(paddingValues)
         ) {
             CalendarPermissionGate(
@@ -147,7 +147,6 @@ fun DayViewScreen(
                             )
                         }
                 ) {
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
 
                     val allDay = events.filter { it.allDay }
                     if (allDay.isNotEmpty()) {
@@ -196,10 +195,9 @@ private fun AllDayBar(events: List<CalendarEvent>, onEventClick: (CalendarEvent)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
-        TextMMD("All-day", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+        TextMMD("All-day", fontSize = 10.sp, fontWeight = FontWeight.Bold)
         events.forEach { ev ->
             Box(
                 modifier = Modifier
@@ -212,7 +210,7 @@ private fun AllDayBar(events: List<CalendarEvent>, onEventClick: (CalendarEvent)
                 TextMMD(ev.title, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             }
         }
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
+        HorizontalDividerMMD(thickness = 1.dp)
     }
 }
 
@@ -232,6 +230,7 @@ fun TimeSlotLabel(hour: Int, height: Dp) {
         }
     }
 
+    val outline = MaterialTheme.colorScheme.outline
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -256,7 +255,7 @@ fun TimeSlotLabel(hour: Int, height: Dp) {
                 .offset(y = 14.dp)
         ) {
             drawLine(
-                color = Color.Black,
+                color = outline,
                 start = Offset(0f, 0f),
                 end = Offset(size.width, 0f),
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(2f, 4f), 0f),
@@ -397,6 +396,13 @@ fun TimeGridOverlay(
                                 lineHeight = 10.sp
                             )
                         }
+                        if (height.value > 40f && !ev.location.isNullOrBlank()) {
+                            TextMMD(
+                                text = ev.location,
+                                fontSize = 9.sp,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             }
@@ -434,7 +440,7 @@ fun TimeGridOverlay(
                         modifier = Modifier
                             .size(width = 20.dp, height = 4.dp)
                             .background(
-                                color = if (i == columnOffset) Color.Black else Color.LightGray,
+                                color = if (i == columnOffset) Color.Black else MaterialTheme.colorScheme.outline,
                                 shape = RoundedCornerShape(2.dp)
                             )
                             .border(0.5.dp, Color.Black, RoundedCornerShape(2.dp))
@@ -466,7 +472,7 @@ fun DayViewScrollIndicator(currentPage: Int, onPageSelected: (Int) -> Unit) {
         for (i in 0..2) {
             Box(
                 modifier = Modifier
-                    .size(width = 6.dp, height = 40.dp)
+                    .size(width = 6.dp, height = 80.dp)
                     .background(
                         color = if (i == currentPage) Color.Black else Color.Transparent,
                         shape = RoundedCornerShape(3.dp)

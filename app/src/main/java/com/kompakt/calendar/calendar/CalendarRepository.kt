@@ -128,63 +128,112 @@ class CalendarRepository(private val context: Context) {
 
         val selection = if (onlyVisible) "${CalendarContract.Instances.VISIBLE} = 1" else null
 
-        val list = mutableListOf<CalendarEvent>()
+        val rawRows = mutableListOf<EventRow>()
         resolver.query(uri, projection, selection, null, "${CalendarContract.Instances.BEGIN} ASC")?.use { c ->
             while (c.moveToNext()) {
-                val eventId = c.getLong(0)
-                val allDay = c.getInt(7) == 1
-                val beginMs = c.getLong(5)
-                val endMsRow = c.getLong(6)
-                val hasReminder = c.getInt(10) == 1
-                
-                var reminderMins: Int? = null
-                if (hasReminder) {
-                    resolver.query(
-                        CalendarContract.Reminders.CONTENT_URI,
-                        arrayOf(CalendarContract.Reminders.MINUTES),
-                        "${CalendarContract.Reminders.EVENT_ID} = ?",
-                        arrayOf(eventId.toString()),
-                        null
-                    )?.use { remC ->
-                        if (remC.moveToFirst()) {
-                            reminderMins = remC.getInt(0)
-                        }
-                    }
-                }
-
-                val startDt = if (allDay) {
-                    // All-day events are stored in UTC at midnight
-                    LocalDateTime.ofEpochSecond(beginMs / 1000, 0, ZoneOffset.UTC)
-                } else {
-                    LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(beginMs), zone)
-                }
-                val endDt = if (allDay) {
-                    LocalDateTime.ofEpochSecond(endMsRow / 1000, 0, ZoneOffset.UTC)
-                } else {
-                    LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(endMsRow), zone)
-                }
-                list.add(
-                    CalendarEvent(
-                        id = eventId,
+                rawRows.add(
+                    EventRow(
+                        eventId = c.getLong(0),
                         calendarId = c.getLong(1),
-                        calendarDisplayName = c.getString(11) ?: "",
-                        calendarColor = c.getInt(12),
-                        title = c.getString(2) ?: "(No title)",
+                        title = c.getString(2),
                         description = c.getString(3),
                         location = c.getString(4),
-                        start = startDt,
-                        end = endDt,
-                        allDay = allDay,
+                        beginMs = c.getLong(5),
+                        endMs = c.getLong(6),
+                        allDay = c.getInt(7) == 1,
                         rrule = c.getString(8),
                         timezone = c.getString(9),
-                        hasReminder = hasReminder,
-                        reminderMinutes = reminderMins
+                        hasReminder = c.getInt(10) == 1,
+                        calendarDisplayName = c.getString(11),
+                        calendarColor = c.getInt(12)
                     )
                 )
             }
         }
+
+        // Batch reminder lookup: one query for all event IDs that have reminders.
+        val remindEventIds = rawRows.filter { it.hasReminder }.map { it.eventId }.distinct()
+        val reminderMap: Map<Long, Int> = if (remindEventIds.isEmpty()) emptyMap()
+        else queryRemindersIn(remindEventIds)
+
+        val list = mutableListOf<CalendarEvent>()
+        for (row in rawRows) {
+            val eventId = row.eventId
+            val allDay = row.allDay
+            val beginMs = row.beginMs
+            val endMsRow = row.endMs
+            val hasReminder = row.hasReminder
+            val reminderMins: Int? = if (hasReminder) reminderMap[eventId] else null
+
+            val startDt = if (allDay) {
+                // All-day events are stored in UTC at midnight
+                LocalDateTime.ofEpochSecond(beginMs / 1000, 0, ZoneOffset.UTC)
+            } else {
+                LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(beginMs), zone)
+            }
+            val endDt = if (allDay) {
+                LocalDateTime.ofEpochSecond(endMsRow / 1000, 0, ZoneOffset.UTC)
+            } else {
+                LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(endMsRow), zone)
+            }
+            list.add(
+                CalendarEvent(
+                    id = eventId,
+                    calendarId = row.calendarId,
+                    calendarDisplayName = row.calendarDisplayName ?: "",
+                    calendarColor = row.calendarColor,
+                    title = row.title ?: "(No title)",
+                    description = row.description,
+                    location = row.location,
+                    start = startDt,
+                    end = endDt,
+                    allDay = allDay,
+                    rrule = row.rrule,
+                    timezone = row.timezone,
+                    hasReminder = hasReminder,
+                    reminderMinutes = reminderMins
+                )
+            )
+        }
         return list
     }
+
+    private fun queryRemindersIn(eventIds: List<Long>): Map<Long, Int> {
+        if (eventIds.isEmpty()) return emptyMap()
+        val placeholders = eventIds.joinToString(",") { "?" }
+        val args = eventIds.map { it.toString() }.toTypedArray()
+        val out = HashMap<Long, Int>()
+        resolver.query(
+            CalendarContract.Reminders.CONTENT_URI,
+            arrayOf(CalendarContract.Reminders.EVENT_ID, CalendarContract.Reminders.MINUTES),
+            "${CalendarContract.Reminders.EVENT_ID} IN ($placeholders)",
+            args,
+            null
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val id = c.getLong(0)
+                // Keep the first reminder seen per event (mirrors prior single-reminder behavior).
+                if (!out.containsKey(id)) out[id] = c.getInt(1)
+            }
+        }
+        return out
+    }
+
+    private data class EventRow(
+        val eventId: Long,
+        val calendarId: Long,
+        val title: String?,
+        val description: String?,
+        val location: String?,
+        val beginMs: Long,
+        val endMs: Long,
+        val allDay: Boolean,
+        val rrule: String?,
+        val timezone: String?,
+        val hasReminder: Boolean,
+        val calendarDisplayName: String?,
+        val calendarColor: Int
+    )
 
     suspend fun getEventsForMonth(month: YearMonth): List<CalendarEvent> =
         getEventsBetween(month.atDay(1), month.atEndOfMonth())
@@ -212,19 +261,13 @@ class CalendarRepository(private val context: Context) {
             CalendarContract.Events.DURATION,
             CalendarContract.Events._ID
         )
-        val list = mutableListOf<Int>()
-        resolver.query(
+        val firstReminder: Int? = resolver.query(
             CalendarContract.Reminders.CONTENT_URI,
             arrayOf(CalendarContract.Reminders.MINUTES),
             "${CalendarContract.Reminders.EVENT_ID} = ?",
             arrayOf(eventId.toString()),
             null
-        )?.use { c ->
-            while (c.moveToNext()) {
-                list.add(c.getInt(0))
-            }
-        }
-        val firstReminder = list.firstOrNull()
+        )?.use { c -> if (c.moveToFirst()) c.getInt(0) else null }
 
         resolver.query(uri, projection, null, null, null)?.use { c ->
             if (c.moveToFirst()) {
@@ -270,7 +313,8 @@ class CalendarRepository(private val context: Context) {
         val end: LocalDateTime,
         val allDay: Boolean,
         val reminderMinutes: Int? = null,
-        val timezone: String = ZoneId.systemDefault().id
+        val timezone: String = ZoneId.systemDefault().id,
+        val rrule: String? = null
     )
 
     suspend fun insertEvent(event: NewEvent): Long? {
@@ -283,17 +327,32 @@ class CalendarRepository(private val context: Context) {
             event.description?.let { put(CalendarContract.Events.DESCRIPTION, it) }
             event.location?.let { put(CalendarContract.Events.EVENT_LOCATION, it) }
             put(CalendarContract.Events.ALL_DAY, if (event.allDay) 1 else 0)
+            
             if (event.allDay) {
                 // All-day uses UTC midnight
                 val startUtc = event.start.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-                val endUtc = event.end.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
                 put(CalendarContract.Events.DTSTART, startUtc)
-                put(CalendarContract.Events.DTEND, endUtc)
                 put(CalendarContract.Events.EVENT_TIMEZONE, "UTC")
+                
+                if (event.rrule != null) {
+                    put(CalendarContract.Events.RRULE, event.rrule)
+                    val days = java.time.temporal.ChronoUnit.DAYS.between(event.start.toLocalDate(), event.end.toLocalDate())
+                    put(CalendarContract.Events.DURATION, "P${days}D")
+                } else {
+                    val endUtc = event.end.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                    put(CalendarContract.Events.DTEND, endUtc)
+                }
             } else {
                 put(CalendarContract.Events.DTSTART, event.start.atZone(zone).toInstant().toEpochMilli())
-                put(CalendarContract.Events.DTEND, event.end.atZone(zone).toInstant().toEpochMilli())
                 put(CalendarContract.Events.EVENT_TIMEZONE, event.timezone)
+                
+                if (event.rrule != null) {
+                    put(CalendarContract.Events.RRULE, event.rrule)
+                    val duration = java.time.Duration.between(event.start, event.end)
+                    put(CalendarContract.Events.DURATION, "P${duration.seconds}S")
+                } else {
+                    put(CalendarContract.Events.DTEND, event.end.atZone(zone).toInstant().toEpochMilli())
+                }
             }
         }
 
@@ -320,16 +379,37 @@ class CalendarRepository(private val context: Context) {
             put(CalendarContract.Events.DESCRIPTION, event.description ?: "")
             put(CalendarContract.Events.EVENT_LOCATION, event.location ?: "")
             put(CalendarContract.Events.ALL_DAY, if (event.allDay) 1 else 0)
+            
             if (event.allDay) {
                 val startUtc = event.start.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-                val endUtc = event.end.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
                 put(CalendarContract.Events.DTSTART, startUtc)
-                put(CalendarContract.Events.DTEND, endUtc)
                 put(CalendarContract.Events.EVENT_TIMEZONE, "UTC")
+                
+                if (event.rrule != null) {
+                    put(CalendarContract.Events.RRULE, event.rrule)
+                    val days = java.time.temporal.ChronoUnit.DAYS.between(event.start.toLocalDate(), event.end.toLocalDate())
+                    put(CalendarContract.Events.DURATION, "P${days}D")
+                    putNull(CalendarContract.Events.DTEND)
+                } else {
+                    val endUtc = event.end.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                    put(CalendarContract.Events.DTEND, endUtc)
+                    putNull(CalendarContract.Events.RRULE)
+                    putNull(CalendarContract.Events.DURATION)
+                }
             } else {
                 put(CalendarContract.Events.DTSTART, event.start.atZone(zone).toInstant().toEpochMilli())
-                put(CalendarContract.Events.DTEND, event.end.atZone(zone).toInstant().toEpochMilli())
                 put(CalendarContract.Events.EVENT_TIMEZONE, event.timezone)
+                
+                if (event.rrule != null) {
+                    put(CalendarContract.Events.RRULE, event.rrule)
+                    val duration = java.time.Duration.between(event.start, event.end)
+                    put(CalendarContract.Events.DURATION, "P${duration.seconds}S")
+                    putNull(CalendarContract.Events.DTEND)
+                } else {
+                    put(CalendarContract.Events.DTEND, event.end.atZone(zone).toInstant().toEpochMilli())
+                    putNull(CalendarContract.Events.RRULE)
+                    putNull(CalendarContract.Events.DURATION)
+                }
             }
         }
         val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)

@@ -34,28 +34,36 @@ object NotificationScheduler {
             CalendarContract.Instances.TITLE,
             CalendarContract.Instances.BEGIN,
             CalendarContract.Instances.ALL_DAY,
-            CalendarContract.Instances.HAS_ALARM
+            CalendarContract.Instances.HAS_ALARM,
+            CalendarContract.Instances.END
         )
+
+        val scheduledEventIds = mutableSetOf<Long>()
 
         context.contentResolver.query(
             uri, projection,
             "${CalendarContract.Instances.VISIBLE} = 1",
-            null, null
+            null, "${CalendarContract.Instances.BEGIN} ASC"
         )?.use { c ->
             while (c.moveToNext()) {
-                val allDay = c.getInt(3) == 1
-                // Schedule notifications for events with alarms, or all events if we want to ensure coverage
-                val hasAlarm = c.getInt(4) == 1
-                if (allDay || !hasAlarm) continue
-
                 val eventId = c.getLong(0)
+                // Only schedule the earliest upcoming instance for each event
+                if (scheduledEventIds.contains(eventId)) continue
+
+                val hasAlarm = c.getInt(4) == 1
+                if (!hasAlarm) continue
+
                 val title = c.getString(1) ?: "(No title)"
                 val startMs = c.getLong(2)
+                val endMsRow = c.getLong(5)
+                
                 if (startMs <= now) continue
+
+                scheduledEventIds.add(eventId)
 
                 val reminderMinutes = queryReminderMinutes(context, eventId)
                 scheduleEventNotifications(
-                    context, eventId, title, startMs, reminderMinutes
+                    context, eventId, title, startMs, endMsRow, reminderMinutes
                 )
             }
         }
@@ -79,21 +87,22 @@ object NotificationScheduler {
         eventId: Long,
         title: String,
         startMs: Long,
+        endMs: Long,
         reminderMinutes: Int?
     ) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         val now = System.currentTimeMillis()
 
-        if (reminderMinutes != null && reminderMinutes > 0) {
+        if (reminderMinutes != null) {
             val reminderMs = startMs - reminderMinutes * 60_000L
             if (reminderMs > now) {
-                val pi = buildPendingIntent(context, eventId, title, isReminder = true, reminderMinutes = reminderMinutes)
+                val pi = buildPendingIntent(context, eventId, title, startMs, endMs, isReminder = true, reminderMinutes = reminderMinutes)
                 scheduleExact(am, reminderMs, pi)
             }
         }
 
         if (startMs > now) {
-            val pi = buildPendingIntent(context, eventId, title, isReminder = false, reminderMinutes = null)
+            val pi = buildPendingIntent(context, eventId, title, startMs, endMs, isReminder = false, reminderMinutes = null)
             scheduleExact(am, startMs, pi)
         }
     }
@@ -117,12 +126,16 @@ object NotificationScheduler {
         context: Context,
         eventId: Long,
         title: String,
+        startMs: Long,
+        endMs: Long,
         isReminder: Boolean,
         reminderMinutes: Int?
     ): PendingIntent {
         val intent = Intent(context, NotificationReceiver::class.java).apply {
             putExtra(NotificationReceiver.EXTRA_EVENT_ID, eventId)
             putExtra(NotificationReceiver.EXTRA_TITLE, title)
+            putExtra(NotificationReceiver.EXTRA_START_MS, startMs)
+            putExtra(NotificationReceiver.EXTRA_END_MS, endMs)
             putExtra(NotificationReceiver.EXTRA_IS_REMINDER, isReminder)
             reminderMinutes?.let { putExtra(NotificationReceiver.EXTRA_REMINDER_MINUTES, it) }
         }
@@ -142,6 +155,9 @@ object NotificationScheduler {
         }
     }
 
-    private fun pendingIntentId(eventId: Long, isReminder: Boolean): Int =
-        (eventId.toInt() shl 1) or (if (isReminder) 1 else 0)
+    private fun pendingIntentId(eventId: Long, isReminder: Boolean): Int {
+        // Use full 64-bit hash, then carve one bit for the reminder/start flag.
+        val base = (eventId xor (eventId ushr 32)).toInt() and 0x7FFFFFFE
+        return base or (if (isReminder) 1 else 0)
+    }
 }

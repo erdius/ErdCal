@@ -9,16 +9,19 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.*
@@ -65,6 +68,10 @@ fun AddEventScreen(
     val isAllDay by viewModel.draftIsAllDay.collectAsState()
     val selectedCalendarId by viewModel.draftCalendarId.collectAsState()
     val selectedReminderMinutes by viewModel.draftReminderMinutes.collectAsState()
+    val rrule by viewModel.draftRrule.collectAsState()
+    val rruleUntil by viewModel.draftRruleUntil.collectAsState()
+    val rruleDays by viewModel.draftRruleDays.collectAsState()
+    val location by viewModel.draftLocation.collectAsState()
 
     val eventNote by viewModel.eventNote.collectAsState()
     val editingId by viewModel.editingEventId.collectAsState()
@@ -92,15 +99,42 @@ fun AddEventScreen(
     var isPickingFrom by remember { mutableStateOf(true) }
     var showReminderPicker by remember { mutableStateOf(false) }
     var showCalendarPicker by remember { mutableStateOf(false) }
+    var showRecurrencePicker by remember { mutableStateOf(false) }
 
-    val reminderOptions = listOf(
-        "No reminder" to null,
-        "5 minutes" to 5,
-        "10 minutes" to 10,
-        "15 minutes" to 15,
-        "1 hour" to 60,
-        "1 day" to 1440,
-        "1 week" to 10080
+    val reminderOptions = remember(isAllDay) {
+        if (isAllDay) {
+            listOf(
+                "No reminder" to null,
+                "On the day (8:00 am)" to -480,
+                "On the day (9:00 am)" to -540,
+                "Day before (6:00 pm)" to 360,
+                "Day before (8:00 pm)" to 240,
+                "1 day before" to 1440,
+                "2 days before" to 2880,
+                "1 week before" to 10080
+            )
+        } else {
+            listOf(
+                "No reminder" to null,
+                "5 minutes before" to 5,
+                "10 minutes before" to 10,
+                "15 minutes before" to 15,
+                "30 minutes before" to 30,
+                "1 hour before" to 60,
+                "2 hours before" to 120,
+                "1 day before" to 1440,
+                "1 week before" to 10080
+            )
+        }
+    }
+
+    val recurrenceOptions = listOf(
+        "Does not repeat" to null,
+        "Daily" to "FREQ=DAILY",
+        "Weekly" to "FREQ=WEEKLY",
+        "Bi-weekly" to "FREQ=WEEKLY;INTERVAL=2",
+        "Monthly" to "FREQ=MONTHLY",
+        "Yearly" to "FREQ=YEARLY"
     )
 
     val writableCalendars = remember(calendars) { calendars.filter { it.isWritable } }
@@ -165,8 +199,12 @@ fun AddEventScreen(
                                             startTime = startTime,
                                             endTime = endTime,
                                             allDay = isAllDay,
+                                            location = location,
                                             calendarId = selectedCalendarId,
-                                            description = eventNote
+                                            description = eventNote,
+                                            rrule = rrule,
+                                            rruleUntil = rruleUntil,
+                                            rruleDays = rruleDays
                                         ),
                                         reminderMinutes = selectedReminderMinutes
                                     )
@@ -291,14 +329,69 @@ fun AddEventScreen(
 
                     item {
                         OptionRow(
+                            icon = Icons.Default.CalendarMonth, // Reusing icon for repeat or find a better one
+                            title = recurrenceOptions.find { it.second == rrule }?.first ?: "Does not repeat",
+                            hasChevron = true,
+                            onClick = { showRecurrencePicker = true }
+                        )
+                    }
+
+                    item {
+                        HorizontalDividerMMD(
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = Color.Black
+                        )
+                    }
+
+                    item {
+                        OptionRow(
                             icon = Icons.Outlined.NotificationsNone,
                             title = reminderOptions.find { it.second == selectedReminderMinutes }?.first
                                 ?: "No reminder",
                             hasChevron = true,
                             onClick = { showReminderPicker = true },
-                            enabled = !isAllDay,
-                            modifier = Modifier.padding(vertical = 8.dp)
+                            enabled = !isAllDay
                         )
+                    }
+
+                    item {
+                        HorizontalDividerMMD(
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = Color.Black
+                        )
+                    }
+
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            CompactOptionItem(
+                                icon = Icons.Outlined.LocationOn,
+                                title = if (location.isEmpty()) "Add location" else {
+                                    if (location.length > 10) "${location.take(10)}..." else location
+                                },
+                                onClick = { navController.navigate("location") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(32.dp)
+                                    .background(Color.Black)
+                                    .align(Alignment.CenterVertically)
+                            )
+                            CompactOptionItem(
+                                icon = Icons.Outlined.Description,
+                                title = if (eventNote.isEmpty()) {
+                                    "Add notes"
+                                } else {
+                                    val displayNote = eventNote.replace("\n", " ")
+                                    if (displayNote.length > 10) "${displayNote.take(10)}..." else displayNote
+                                },
+                                onClick = { navController.navigate("notes") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
 
                     item {
@@ -316,31 +409,7 @@ fun AddEventScreen(
                                 "${it.displayName}${if (it.isDavx5) " (DAVx5)" else ""}"
                             } ?: "Choose calendar",
                             hasChevron = true,
-                            onClick = { showCalendarPicker = true },
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-
-                    item {
-                        HorizontalDividerMMD(
-                            thickness = 1.dp,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = Color.Black
-                        )
-                    }
-
-                    item {
-                        OptionRow(
-                            icon = Icons.Outlined.Description,
-                            title = if (eventNote.isEmpty()) {
-                                "Add notes"
-                            } else {
-                                val displayNote = eventNote.replace("\n", " ")
-                                if (displayNote.length > 10) "${displayNote.take(10)}..." else displayNote
-                            },
-                            hasChevron = true,
-                            onClick = { navController.navigate("notes") },
-                            modifier = Modifier.padding(vertical = 8.dp)
+                            onClick = { showCalendarPicker = true }
                         )
                     }
                 }
@@ -373,6 +442,247 @@ fun AddEventScreen(
                 onDismiss = { showReminderPicker = false }
             )
         }
+
+        if (showRecurrencePicker) {
+            RecurrencePickerOverlay(
+                options = recurrenceOptions,
+                selectedRrule = rrule,
+                selectedUntil = rruleUntil,
+                selectedDays = viewModel.draftRruleDays.collectAsState().value,
+                startDate = startDate,
+                onPick = { rule, until, days ->
+                    viewModel.updateDraftRrule(rule)
+                    viewModel.updateDraftRruleUntil(until)
+                    viewModel.updateDraftRruleDays(days)
+                    showRecurrencePicker = false
+                },
+                onDismiss = { showRecurrencePicker = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecurrencePickerOverlay(
+    options: List<Pair<String, String?>>,
+    selectedRrule: String?,
+    selectedUntil: LocalDate?,
+    selectedDays: Set<Int>,
+    startDate: LocalDate,
+    onPick: (String?, LocalDate?, Set<Int>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
+    val canScrollBackward by remember { derivedStateOf { listState.canScrollBackward } }
+    val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
+
+    var currentRrule by remember { mutableStateOf(selectedRrule) }
+    var currentUntil by remember { mutableStateOf(selectedUntil) }
+    var currentDays by remember { mutableStateOf(selectedDays) }
+
+    // When switching to weekly, if no days are selected, default to the event's start day
+    LaunchedEffect(currentRrule) {
+        if (currentRrule?.contains("WEEKLY") == true && currentDays.isEmpty()) {
+            currentDays = setOf(startDate.dayOfWeek.value)
+        }
+    }
+
+    val daysOfWeek = listOf(
+        "Mo" to 1, "Di" to 2, "Mi" to 3, "Do" to 4, "Fr" to 5, "Sa" to 6, "So" to 7
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = Color.White
+    ) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close")
+                }
+                TextMMD(
+                    "Set Recurrence",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp).weight(1f)
+                )
+                ButtonMMD(
+                    onClick = { onPick(currentRrule, currentUntil, currentDays) },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    TextMMD("Done", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
+
+            Row(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .eInkVerticalScroll(listState, scope, isScrollable)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    userScrollEnabled = false
+                ) {
+                    items(options) { (label, rule) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { currentRrule = rule }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextMMD(
+                                label,
+                                fontSize = 16.sp,
+                                fontWeight = if (currentRrule == rule) FontWeight.Bold else FontWeight.Normal
+                            )
+                            RadioButtonMMD(
+                                selected = currentRrule == rule,
+                                onClick = { currentRrule = rule }
+                            )
+                        }
+                        HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
+                    }
+
+                    if (currentRrule != null) {
+                        if (currentRrule?.contains("WEEKLY") == true) {
+                            item {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                TextMMD("Repeat on", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    daysOfWeek.forEach { (name, dayNum) ->
+                                        val isSelected = currentDays.contains(dayNum)
+                                        Box(
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .background(
+                                                    if (isSelected) Color.Black else Color.White,
+                                                    CircleShape
+                                                )
+                                                .border(1.dp, Color.Black, CircleShape)
+                                                .clickable {
+                                                    currentDays = if (isSelected) {
+                                                        if (currentDays.size > 1) currentDays - dayNum else currentDays
+                                                    } else {
+                                                        currentDays + dayNum
+                                                    }
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            TextMMD(
+                                                text = name,
+                                                color = if (isSelected) Color.White else Color.Black,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TextMMD("Repeat for", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            val unitName = when {
+                                currentRrule?.contains("DAILY") == true -> "day"
+                                currentRrule?.contains("WEEKLY") == true -> "week"
+                                currentRrule?.contains("MONTHLY") == true -> "month"
+                                currentRrule?.contains("YEARLY") == true -> "year"
+                                else -> "unit"
+                            }
+                            
+                            val duration = if (currentUntil == null) 0 else {
+                                when (unitName) {
+                                    "day" -> java.time.temporal.ChronoUnit.DAYS.between(startDate, currentUntil).toInt()
+                                    "week" -> java.time.temporal.ChronoUnit.WEEKS.between(startDate, currentUntil).toInt()
+                                    "month" -> java.time.temporal.ChronoUnit.MONTHS.between(startDate, currentUntil).toInt()
+                                    "year" -> java.time.temporal.ChronoUnit.YEARS.between(startDate, currentUntil).toInt()
+                                    else -> 0
+                                }
+                            }.coerceAtLeast(0)
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, Color.Black, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.padding(start = 4.dp)) {
+                                    TextMMD(
+                                        text = if (duration == 0) "Forever" else "$duration ${unitName}${if (duration > 1) "s" else ""}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (currentUntil != null) {
+                                        TextMMD(
+                                            text = "Until ${currentUntil?.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.US))}",
+                                            fontSize = 12.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+                                }
+                                
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = {
+                                        if (duration > 0) {
+                                            val newDuration = duration - 1
+                                            currentUntil = if (newDuration == 0) null else {
+                                                when (unitName) {
+                                                    "day" -> startDate.plusDays(newDuration.toLong())
+                                                    "week" -> startDate.plusWeeks(newDuration.toLong())
+                                                    "month" -> startDate.plusMonths(newDuration.toLong())
+                                                    "year" -> startDate.plusYears(newDuration.toLong())
+                                                    else -> currentUntil
+                                                }
+                                            }
+                                        }
+                                    }, modifier = Modifier.size(40.dp)) {
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Decrease duration")
+                                    }
+                                    
+                                    IconButton(onClick = {
+                                        val newDuration = duration + 1
+                                        currentUntil = when (unitName) {
+                                            "day" -> startDate.plusDays(newDuration.toLong())
+                                            "week" -> startDate.plusWeeks(newDuration.toLong())
+                                            "month" -> startDate.plusMonths(newDuration.toLong())
+                                            "year" -> startDate.plusYears(newDuration.toLong())
+                                            else -> currentUntil
+                                        }
+                                    }, modifier = Modifier.size(40.dp)) {
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Increase duration")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (isScrollable) {
+                    EInkScrollbar(state = listState, scope = scope)
+                }
+            }
+        }
     }
 }
 
@@ -397,7 +707,7 @@ private fun ReminderPickerOverlay(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(64.dp)
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -475,7 +785,7 @@ private fun CalendarPickerOverlay(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(64.dp)
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -565,7 +875,11 @@ fun HeaderTab(
         val timePattern = if (is24Hour) "HH:mm" else "h:mm a"
 
         TextMMD(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.Black else Color.Gray)
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.height(48.dp)
+        ) {
             if (!isAllDay) {
                 TextMMD(
                     text = time.format(DateTimeFormatter.ofPattern(timePattern, Locale.US)).lowercase(),
@@ -580,11 +894,11 @@ fun HeaderTab(
                 fontWeight = if (isAllDay) FontWeight.Bold else FontWeight.Normal,
                 color = if (isSelected) Color.Black else Color.Gray
             )
-            if (isSelected) {
-                Box(modifier = Modifier.width(60.dp).height(2.dp).background(Color.Black))
-            } else {
-                Spacer(modifier = Modifier.height(2.dp))
-            }
+        }
+        if (isSelected) {
+            Box(modifier = Modifier.width(60.dp).height(2.dp).background(Color.Black))
+        } else {
+            Spacer(modifier = Modifier.height(2.dp))
         }
     }
 }
@@ -771,6 +1085,30 @@ fun PickerColumn(
 }
 
 @Composable
+fun CompactOptionItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        TextMMD(
+            text = title,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
 fun OptionRow(
     title: String,
     modifier: Modifier = Modifier,
@@ -785,20 +1123,20 @@ fun OptionRow(
         modifier = modifier
             .fillMaxWidth()
             .clickable(enabled = enabled && onClick != null) { onClick?.invoke() }
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             if (icon != null) {
-                Icon(icon, contentDescription = null, tint = if (enabled) Color.Black else Color.LightGray, modifier = Modifier.size(24.dp))
+                Icon(icon, contentDescription = null, tint = if (enabled) Color.Black else Color.LightGray, modifier = Modifier.size(20.dp))
             } else {
-                Spacer(modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(8.dp))
             TextMMD(
                 text = title,
-                fontSize = 18.sp,
+                fontSize = 15.sp,
                 color = if (enabled) Color.Black else Color.LightGray,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1
@@ -810,12 +1148,12 @@ fun OptionRow(
                 onCheckedChange = onCheckedChange,
                 enabled = enabled,
                 modifier = Modifier
-                    .scale(0.75f)
-                    .padding(0.dp)
-                    .size(40.dp)
+                    .scale(0.6f)
+                    .padding(horizontal = 4.dp, vertical = 0.dp)
+                    .size(20.dp)
             )
         } else if (hasChevron) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(24.dp))
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(20.dp))
         }
     }
 }

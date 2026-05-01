@@ -1,7 +1,6 @@
 package com.kompakt.calendar
 
 import android.text.format.DateFormat
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.kompakt.calendar.calendar.CalendarEvent
+import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import kotlinx.coroutines.launch
@@ -71,8 +71,8 @@ fun EventDetailScreen(
                     }
                     IconButton(
                         onClick = {
-                            if (event != null) {
-                                viewModel.beginEditEvent(event!!)
+                            event?.let { ev ->
+                                viewModel.beginEditEvent(ev)
                                 navController.navigate("add_event?fromCalendar=false")
                             }
                         }
@@ -87,7 +87,6 @@ fun EventDetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White)
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
@@ -97,31 +96,25 @@ fun EventDetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White)
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
                 TextMMD("Event not found")
             }
         } else {
+            val ev = event!!
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White)
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(Color.Black)
-                )
+                HorizontalDividerMMD(thickness = 2.dp)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 TextMMD(
-                    text = event!!.title.ifBlank { "Untitled event" },
+                    text = ev.title.ifBlank { "Untitled event" },
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -155,14 +148,14 @@ fun EventDetailScreen(
 
                     Column {
                         TextMMD(
-                            text = event!!.start.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.US)),
+                            text = ev.start.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.US)),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Normal
                         )
-                        val timeRange = if (event!!.allDay) {
+                        val timeRange = if (ev.allDay) {
                             "All day"
                         } else {
-                            "${event!!.start.format(DateTimeFormatter.ofPattern(timePattern, Locale.US))} – ${event!!.end.format(DateTimeFormatter.ofPattern(timePattern, Locale.US))}"
+                            "${ev.start.format(DateTimeFormatter.ofPattern(timePattern, Locale.US))} – ${ev.end.format(DateTimeFormatter.ofPattern(timePattern, Locale.US))}"
                         }
                         TextMMD(
                             text = timeRange,
@@ -174,19 +167,32 @@ fun EventDetailScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                if (!event!!.location.isNullOrBlank()) {
-                    DetailRow(label = "Location", value = event!!.location!!)
+                val rrule = ev.rrule
+                if (!rrule.isNullOrBlank()) {
+                    val recurrenceText = when {
+                        rrule.contains("FREQ=DAILY") -> "Daily"
+                        rrule.contains("INTERVAL=2") && rrule.contains("FREQ=WEEKLY") -> "Bi-weekly"
+                        rrule.contains("FREQ=WEEKLY") -> "Weekly"
+                        rrule.contains("FREQ=MONTHLY") -> "Monthly"
+                        rrule.contains("FREQ=YEARLY") -> "Yearly"
+                        else -> "Recurring"
+                    }
+                    DetailRow(label = "Repeat", value = recurrenceText)
+                }
+
+                val location = ev.location
+                if (!location.isNullOrBlank()) {
+                    DetailRow(label = "Location", value = location)
                 }
 
                 TextMMD(
-                    text = "Calendar: ${event!!.calendarDisplayName}",
+                    text = "Calendar: ${ev.calendarDisplayName}",
                     fontSize = 14.sp,
-                    color = Color.DarkGray,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
 
-                if (event!!.hasReminder) {
-                    val reminderText = when (val mins = event!!.reminderMinutes) {
+                if (ev.hasReminder) {
+                    val reminderText = when (val mins = ev.reminderMinutes) {
                         null -> "5 minutes before"
                         0 -> "At time of event"
                         in 1..59 -> "$mins minutes before"
@@ -204,7 +210,8 @@ fun EventDetailScreen(
                     DetailRow(label = "Reminder", value = reminderText)
                 }
 
-                if (!event!!.description.isNullOrBlank()) {
+                val description = ev.description
+                if (!description.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(20.dp))
                     TextMMD(
                         text = "Notes",
@@ -213,7 +220,7 @@ fun EventDetailScreen(
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                     TextMMD(
-                        text = event!!.description!!,
+                        text = description,
                         fontSize = 14.sp,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
@@ -231,8 +238,7 @@ private fun DetailRow(label: String, value: String) {
         TextMMD(
             text = label,
             fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.Gray
+            fontWeight = FontWeight.Bold
         )
         TextMMD(
             text = value,

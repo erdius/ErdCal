@@ -1,32 +1,23 @@
 package com.kompakt.calendar
 
 import android.text.format.DateFormat
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,11 +25,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.kompakt.calendar.calendar.CalendarEvent
 import com.kompakt.calendar.ui.EInkScrollbar
+import com.kompakt.calendar.ui.common.DashedDivider
 import com.kompakt.calendar.ui.eInkVerticalScroll
 import com.mudita.mmd.components.buttons.FloatingActionButtonMMD
+import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -89,7 +81,8 @@ fun AgendaScreen(
                 onClick = {
                     viewModel.beginNewEvent()
                     navController.navigate("add_event?fromCalendar=false")
-                }
+                },
+                modifier = Modifier.padding(end = 16.dp, bottom = 8.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Event", modifier = Modifier.size(32.dp))
             }
@@ -98,29 +91,24 @@ fun AgendaScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
                 .padding(paddingValues)
         ) {
             CalendarPermissionGate(
                 hasPermission = hasPermission,
                 onPermissionGranted = { viewModel.refreshPermission() }
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
-
-                    if (events.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            TextMMD("No upcoming events", color = Color.Gray)
-                        }
-                    } else {
-                        val groupedEvents = remember(events) { events.groupBy { it.start.toLocalDate() } }
-                        AgendaList(
-                            groupedEvents = groupedEvents,
-                            onEventClick = { event ->
-                                navController.navigate("event_detail/${event.id}")
-                            }
-                        )
+                if (events.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        TextMMD("No upcoming events")
                     }
+                } else {
+                    val groupedEvents = remember(events) { events.groupBy { it.start.toLocalDate() } }
+                    AgendaList(
+                        groupedEvents = groupedEvents,
+                        onEventClick = { event ->
+                            navController.navigate("event_detail/${event.id}")
+                        }
+                    )
                 }
             }
         }
@@ -153,9 +141,11 @@ private fun AgendaList(
                 item(key = date) {
                     AgendaHeader(date)
                 }
-                items(dayEvents, key = { it.id }) { event ->
+                itemsIndexed(dayEvents, key = { _, e -> e.id }) { index, event ->
                     AgendaItem(event) { onEventClick(event) }
-                    Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color.LightGray))
+                    if (index < dayEvents.size - 1) {
+                        DashedDivider(modifier = Modifier.padding(start = 16.dp))
+                    }
                 }
             }
         }
@@ -175,18 +165,14 @@ fun AgendaHeader(date: LocalDate) {
         else -> date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault()))
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFF5F5F5))
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
+    Column {
         TextMMD(
             text = label,
-            fontSize = 14.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
         )
+        HorizontalDividerMMD(thickness = 2.dp)
     }
 }
 
@@ -209,20 +195,19 @@ fun AgendaItem(event: CalendarEvent, onClick: () -> Unit) {
         TextMMD(
             text = event.title,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.Black
+            fontWeight = FontWeight.SemiBold
         )
         TextMMD(
             text = timeTxt,
             fontSize = 13.sp,
-            color = Color.DarkGray,
+            fontWeight = FontWeight.Normal,
             modifier = Modifier.padding(top = 4.dp)
         )
         if (!event.location.isNullOrBlank()) {
             TextMMD(
                 text = event.location,
                 fontSize = 13.sp,
-                color = Color.Gray,
+                fontWeight = FontWeight.Normal,
                 modifier = Modifier.padding(top = 2.dp)
             )
         }

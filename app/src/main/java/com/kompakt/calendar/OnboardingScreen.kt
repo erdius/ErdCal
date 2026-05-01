@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -12,7 +13,6 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,13 +26,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kompakt.calendar.ui.EInkScrollbar
 import com.kompakt.calendar.ui.eInkVerticalScroll
@@ -55,6 +57,15 @@ fun OnboardingScreen(
     var alarmsGranted by remember { mutableStateOf(false) }
     var overlayGranted by remember { mutableStateOf(false) }
     var batteryGranted by remember { mutableStateOf(false) }
+    
+    val isDuraSpeedAvailable = remember {
+        try {
+            context.packageManager.getPackageInfo("com.mediatek.duraspeed", 0)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     fun refreshStatus() {
         calendarGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
@@ -68,6 +79,23 @@ fun OnboardingScreen(
         } else true
         overlayGranted = Settings.canDrawOverlays(context)
         batteryGranted = context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
+        
+        if (calendarGranted) {
+            viewModel.refreshPermission()
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     LaunchedEffect(Unit) { refreshStatus() }
@@ -117,7 +145,6 @@ fun OnboardingScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
                 .padding(paddingValues)
         ) {
             LazyColumn(
@@ -142,7 +169,6 @@ fun OnboardingScreen(
                     TextMMD(
                         text = "We need these permissions for reliable e-ink reminders.",
                         fontSize = 14.sp,
-                        color = Color.DarkGray,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -159,7 +185,7 @@ fun OnboardingScreen(
                             calendarLauncher.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR))
                         }
                     )
-                    HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
+                    HorizontalDividerMMD(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 }
 
                 item {
@@ -178,7 +204,7 @@ fun OnboardingScreen(
                             }
                         }
                     )
-                    HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
+                    HorizontalDividerMMD(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 }
 
                 item {
@@ -193,7 +219,7 @@ fun OnboardingScreen(
                             }
                         }
                     )
-                    HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
+                    HorizontalDividerMMD(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 }
 
                 item {
@@ -206,7 +232,7 @@ fun OnboardingScreen(
                             context.startActivity(intent)
                         }
                     )
-                    HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
+                    HorizontalDividerMMD(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 }
 
                 item {
@@ -215,10 +241,46 @@ fun OnboardingScreen(
                         description = "No delayed alerts.",
                         isGranted = batteryGranted,
                         onClick = {
-                            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
                             context.startActivity(intent)
                         }
                     )
+                    if (isDuraSpeedAvailable) {
+                        HorizontalDividerMMD(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+
+                if (isDuraSpeedAvailable) {
+                    item {
+                        OnboardingPermissionRow(
+                            title = "DuraSpeed",
+                            description = "Whitelisting for Mudita.",
+                            isGranted = false,
+                            onClick = {
+                            try {
+                                val intent = context.packageManager.getLaunchIntentForPackage("com.mediatek.duraspeed")
+                                if (intent != null) {
+                                    context.startActivity(intent)
+                                } else {
+                                    val explicitIntent = Intent().apply {
+                                        component = ComponentName("com.mediatek.duraspeed", "com.mediatek.duraspeed.DuraSpeedMainActivity")
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(explicitIntent)
+                                }
+                            } catch (e: Exception) {
+                                try {
+                                    val appInfoIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = Uri.fromParts("package", "com.mediatek.duraspeed", null)
+                                    }
+                                    context.startActivity(appInfoIntent)
+                                } catch (e2: Exception) {
+                                    context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                                }
+                            }
+                        }
+                        )
+                    }
                 }
             }
 
@@ -249,16 +311,15 @@ private fun OnboardingPermissionRow(
                 TextMMD(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 if (isRequired && !isGranted) {
                     Spacer(modifier = Modifier.width(6.dp))
-                    TextMMD(text = "(Req.)", fontSize = 11.sp, color = Color.Black)
+                    TextMMD(text = "(Req.)", fontSize = 11.sp)
                 }
             }
-            TextMMD(text = description, fontSize = 13.sp, color = Color.Gray)
+            TextMMD(text = description, fontSize = 13.sp)
         }
         Spacer(modifier = Modifier.width(12.dp))
         Icon(
             imageVector = if (isGranted) Icons.Default.CheckCircle else if (isRequired) Icons.Default.Error else Icons.Default.Warning,
             contentDescription = null,
-            tint = Color.Black,
             modifier = Modifier.size(28.dp)
         )
     }
