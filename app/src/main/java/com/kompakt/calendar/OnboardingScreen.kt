@@ -254,7 +254,7 @@ fun OnboardingScreen(
                     item {
                         OnboardingPermissionRow(
                             title = "DuraSpeed",
-                            description = "Whitelisting for Mudita.",
+                            description = "Whitelisting for KompaktCalendar.",
                             isGranted = false,
                             onClick = {
                             try {

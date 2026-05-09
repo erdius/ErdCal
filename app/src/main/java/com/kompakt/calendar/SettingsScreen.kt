@@ -535,8 +535,7 @@ fun SettingsScreen(
                 }
                 item {
                     TextMMD(
-                        text = "Version 1.0.0\n\n" +
-                                "Built with Mudita Mindful Design for e-ink devices.\n\n" +
+                        text = "Built with Mudita Mindful Design for e-ink devices.\n\n" +
                                 "Reads calendars synced by DAVx5 (CalDAV), Google Calendar, Exchange, " +
                                 "and any other Android sync adapter.",
                         fontSize = 12.sp,
