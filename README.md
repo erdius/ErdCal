@@ -62,8 +62,8 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - **Month view** — scrollable calendar grid with event indicators, ISO week numbers, and configurable week start day
 - **Day view** — 3 switchable time windows (midnight–noon, 8 am–8 pm, noon–midnight) with a live current-time indicator that updates every 30 seconds; supports horizontal scrolling when more than 2 events overlap
 - **Agenda view** — upcoming events for the next 3 months, jump-scroll list with e-ink scrollbar
-- **Event creation & editing** — title, start/end date+time, all-day toggle, reminder, calendar picker, notes
-- **Notifications** — own AlarmManager-based alarm stack; fires a reminder notification N minutes before and a second notification at event start; survives device reboot
+- **Event creation & editing** — title, start/end date+time, all-day toggle, reminder, repeating events, calendar picker, notes
+- **Notifications** — own AlarmManager-based alarm stack; fires a reminder notifications before and a notification at event start; can be snoozed; survives device reboot
 - **Full-screen event alert** — at event start time a dedicated full-screen activity launches, waking the screen and bypassing the lock screen so the alert is visible even when the phone is sleeping
 - **Search** — full-text search across title, description, and location
 - **Settings** — calendar visibility toggles, default calendar, default reminder, week start day, week numbers
