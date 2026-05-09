@@ -58,6 +58,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val showWeekNumbers by viewModel.showWeekNumbers.collectAsState()
     val startDayMonday by viewModel.startWeekOnMonday.collectAsState()
+    val useAmericanDateFormat by viewModel.useAmericanDateFormat.collectAsState()
     val calendars by viewModel.calendarsLive.collectAsState()
     val defaultCalendarId by viewModel.defaultCalendarId.collectAsState()
     val defaultReminderMinutes by viewModel.defaultReminderMinutes.collectAsState()
@@ -402,6 +403,18 @@ fun SettingsScreen(
                         title = "Start week on Monday",
                         checked = startDayMonday,
                         onCheckedChange = { scope.launch { viewModel.setStartWeekOnMonday(it) } }
+                    )
+                }
+
+                item {
+                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                }
+
+                item {
+                    SettingToggle(
+                        title = "Use American date format",
+                        checked = useAmericanDateFormat,
+                        onCheckedChange = { scope.launch { viewModel.setUseAmericanDateFormat(it) } }
                     )
                 }
 

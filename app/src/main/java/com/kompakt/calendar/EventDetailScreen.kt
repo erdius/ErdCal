@@ -39,6 +39,7 @@ fun EventDetailScreen(
     var event by remember { mutableStateOf<CalendarEvent?>(null) }
     var loading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
+    val useAmericanDateFormat by viewModel.useAmericanDateFormat.collectAsState()
 
     LaunchedEffect(eventId) {
         scope.launch {
@@ -147,8 +148,9 @@ fun EventDetailScreen(
                     Spacer(modifier = Modifier.width(16.dp))
 
                     Column {
+                        val pattern = if (useAmericanDateFormat) "EEEE, MMMM d" else "EEEE, d MMMM"
                         TextMMD(
-                            text = ev.start.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.US)),
+                            text = ev.start.format(DateTimeFormatter.ofPattern(pattern, Locale.US)),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Normal
                         )
@@ -192,22 +194,23 @@ fun EventDetailScreen(
                 )
 
                 if (ev.hasReminder) {
-                    val reminderText = when (val mins = ev.reminderMinutes) {
-                        null -> "5 minutes before"
-                        0 -> "At time of event"
-                        in 1..59 -> "$mins minutes before"
-                        in 60..1439 -> {
-                            val hours = mins / 60
-                            val m = mins % 60
-                            if (m == 0) "$hours ${if (hours == 1) "hour" else "hours"} before"
-                            else "${hours}h ${m}m before"
-                        }
-                        else -> {
-                            val days = mins / 1440
-                            "$days ${if (days == 1) "day" else "days"} before"
+                    val reminderText = ev.reminders.joinToString(", ") { mins ->
+                        when (mins) {
+                            0 -> "At time of event"
+                            in 1..59 -> "$mins minutes before"
+                            in 60..1439 -> {
+                                val hours = mins / 60
+                                val m = mins % 60
+                                if (m == 0) "$hours ${if (hours == 1) "hour" else "hours"} before"
+                                else "${hours}h ${m}m before"
+                            }
+                            else -> {
+                                val days = mins / 1440
+                                "$days ${if (days == 1) "day" else "days"} before"
+                            }
                         }
                     }
-                    DetailRow(label = "Reminder", value = reminderText)
+                    DetailRow(label = if (ev.reminders.size > 1) "Reminders" else "Reminder", value = reminderText)
                 }
 
                 val description = ev.description

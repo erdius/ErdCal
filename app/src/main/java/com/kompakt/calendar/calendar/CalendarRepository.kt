@@ -153,7 +153,7 @@ class CalendarRepository(private val context: Context) {
 
         // Batch reminder lookup: one query for all event IDs that have reminders.
         val remindEventIds = rawRows.filter { it.hasReminder }.map { it.eventId }.distinct()
-        val reminderMap: Map<Long, Int> = if (remindEventIds.isEmpty()) emptyMap()
+        val reminderMap: Map<Long, List<Int>> = if (remindEventIds.isEmpty()) emptyMap()
         else queryRemindersIn(remindEventIds)
 
         val list = mutableListOf<CalendarEvent>()
@@ -163,19 +163,29 @@ class CalendarRepository(private val context: Context) {
             val beginMs = row.beginMs
             val endMsRow = row.endMs
             val hasReminder = row.hasReminder
-            val reminderMins: Int? = if (hasReminder) reminderMap[eventId] else null
+            val reminders: List<Int> = if (hasReminder) reminderMap[eventId] ?: emptyList() else emptyList()
 
             val startDt = if (allDay) {
                 // All-day events are stored in UTC at midnight
                 LocalDateTime.ofEpochSecond(beginMs / 1000, 0, ZoneOffset.UTC)
             } else {
                 LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(beginMs), zone)
+                    .withSecond(0).withNano(0)
             }
             val endDt = if (allDay) {
                 LocalDateTime.ofEpochSecond(endMsRow / 1000, 0, ZoneOffset.UTC)
             } else {
                 LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(endMsRow), zone)
+                    .withSecond(0).withNano(0)
             }
+
+            // Filter out events that don't actually occur on the requested dates (handles timezone shifts for all-day events)
+            val logicalStart = startDt.toLocalDate()
+            val logicalEnd = if (allDay) endDt.toLocalDate().minusDays(1) else endDt.toLocalDate()
+            if (logicalStart.isAfter(endInclusive) || logicalEnd.isBefore(start)) {
+                continue
+            }
+
             list.add(
                 CalendarEvent(
                     id = eventId,
@@ -191,18 +201,18 @@ class CalendarRepository(private val context: Context) {
                     rrule = row.rrule,
                     timezone = row.timezone,
                     hasReminder = hasReminder,
-                    reminderMinutes = reminderMins
+                    reminders = reminders
                 )
             )
         }
         return list
     }
 
-    private fun queryRemindersIn(eventIds: List<Long>): Map<Long, Int> {
+    private fun queryRemindersIn(eventIds: List<Long>): Map<Long, List<Int>> {
         if (eventIds.isEmpty()) return emptyMap()
         val placeholders = eventIds.joinToString(",") { "?" }
         val args = eventIds.map { it.toString() }.toTypedArray()
-        val out = HashMap<Long, Int>()
+        val out = HashMap<Long, MutableList<Int>>()
         resolver.query(
             CalendarContract.Reminders.CONTENT_URI,
             arrayOf(CalendarContract.Reminders.EVENT_ID, CalendarContract.Reminders.MINUTES),
@@ -212,8 +222,8 @@ class CalendarRepository(private val context: Context) {
         )?.use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
-                // Keep the first reminder seen per event (mirrors prior single-reminder behavior).
-                if (!out.containsKey(id)) out[id] = c.getInt(1)
+                val mins = c.getInt(1)
+                out.getOrPut(id) { mutableListOf() }.add(mins)
             }
         }
         return out
@@ -261,13 +271,18 @@ class CalendarRepository(private val context: Context) {
             CalendarContract.Events.DURATION,
             CalendarContract.Events._ID
         )
-        val firstReminder: Int? = resolver.query(
+        val reminders = mutableListOf<Int>()
+        resolver.query(
             CalendarContract.Reminders.CONTENT_URI,
             arrayOf(CalendarContract.Reminders.MINUTES),
             "${CalendarContract.Reminders.EVENT_ID} = ?",
             arrayOf(eventId.toString()),
             null
-        )?.use { c -> if (c.moveToFirst()) c.getInt(0) else null }
+        )?.use { c ->
+            while (c.moveToNext()) {
+                reminders.add(c.getInt(0))
+            }
+        }
 
         resolver.query(uri, projection, null, null, null)?.use { c ->
             if (c.moveToFirst()) {
@@ -279,10 +294,12 @@ class CalendarRepository(private val context: Context) {
                     LocalDateTime.ofEpochSecond(beginMs / 1000, 0, ZoneOffset.UTC)
                 else
                     LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(beginMs), zone)
+                        .withSecond(0).withNano(0)
                 val endDt = if (allDay)
                     LocalDateTime.ofEpochSecond(endMs / 1000, 0, ZoneOffset.UTC)
                 else
                     LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(endMs), zone)
+                        .withSecond(0).withNano(0)
                 return CalendarEvent(
                     id = c.getLong(0),
                     calendarId = c.getLong(1),
@@ -297,7 +314,7 @@ class CalendarRepository(private val context: Context) {
                     rrule = c.getString(8),
                     timezone = c.getString(9),
                     hasReminder = c.getInt(10) == 1,
-                    reminderMinutes = firstReminder
+                    reminders = reminders
                 )
             }
         }
@@ -312,7 +329,7 @@ class CalendarRepository(private val context: Context) {
         val start: LocalDateTime,
         val end: LocalDateTime,
         val allDay: Boolean,
-        val reminderMinutes: Int? = null,
+        val reminders: List<Int> = emptyList(),
         val timezone: String = ZoneId.systemDefault().id,
         val rrule: String? = null
     )
@@ -336,22 +353,24 @@ class CalendarRepository(private val context: Context) {
                 
                 if (event.rrule != null) {
                     put(CalendarContract.Events.RRULE, event.rrule)
-                    val days = java.time.temporal.ChronoUnit.DAYS.between(event.start.toLocalDate(), event.end.toLocalDate())
+                    val days = java.time.temporal.ChronoUnit.DAYS.between(event.start.toLocalDate(), event.end.toLocalDate()) + 1
                     put(CalendarContract.Events.DURATION, "P${days}D")
                 } else {
-                    val endUtc = event.end.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                    val endUtc = event.end.toLocalDate().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
                     put(CalendarContract.Events.DTEND, endUtc)
                 }
             } else {
-                put(CalendarContract.Events.DTSTART, event.start.atZone(zone).toInstant().toEpochMilli())
+                val startMs = event.start.withSecond(0).withNano(0).atZone(zone).toInstant().toEpochMilli()
+                put(CalendarContract.Events.DTSTART, startMs)
                 put(CalendarContract.Events.EVENT_TIMEZONE, event.timezone)
                 
                 if (event.rrule != null) {
                     put(CalendarContract.Events.RRULE, event.rrule)
-                    val duration = java.time.Duration.between(event.start, event.end)
+                    val duration = java.time.Duration.between(event.start.withSecond(0).withNano(0), event.end.withSecond(0).withNano(0))
                     put(CalendarContract.Events.DURATION, "P${duration.seconds}S")
                 } else {
-                    put(CalendarContract.Events.DTEND, event.end.atZone(zone).toInstant().toEpochMilli())
+                    val endMs = event.end.withSecond(0).withNano(0).atZone(zone).toInstant().toEpochMilli()
+                    put(CalendarContract.Events.DTEND, endMs)
                 }
             }
         }
@@ -359,13 +378,15 @@ class CalendarRepository(private val context: Context) {
         val uri = resolver.insert(CalendarContract.Events.CONTENT_URI, values) ?: return null
         val id = ContentUris.parseId(uri)
 
-        if (event.reminderMinutes != null && !event.allDay) {
-            val rv = ContentValues().apply {
-                put(CalendarContract.Reminders.EVENT_ID, id)
-                put(CalendarContract.Reminders.MINUTES, event.reminderMinutes)
-                put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT)
+        if (event.reminders.isNotEmpty() && !event.allDay) {
+            event.reminders.forEach { mins ->
+                val rv = ContentValues().apply {
+                    put(CalendarContract.Reminders.EVENT_ID, id)
+                    put(CalendarContract.Reminders.MINUTES, mins)
+                    put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT)
+                }
+                resolver.insert(CalendarContract.Reminders.CONTENT_URI, rv)
             }
-            resolver.insert(CalendarContract.Reminders.CONTENT_URI, rv)
         }
         notifyChanged()
         return id
@@ -387,26 +408,28 @@ class CalendarRepository(private val context: Context) {
                 
                 if (event.rrule != null) {
                     put(CalendarContract.Events.RRULE, event.rrule)
-                    val days = java.time.temporal.ChronoUnit.DAYS.between(event.start.toLocalDate(), event.end.toLocalDate())
+                    val days = java.time.temporal.ChronoUnit.DAYS.between(event.start.toLocalDate(), event.end.toLocalDate()) + 1
                     put(CalendarContract.Events.DURATION, "P${days}D")
                     putNull(CalendarContract.Events.DTEND)
                 } else {
-                    val endUtc = event.end.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                    val endUtc = event.end.toLocalDate().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
                     put(CalendarContract.Events.DTEND, endUtc)
                     putNull(CalendarContract.Events.RRULE)
                     putNull(CalendarContract.Events.DURATION)
                 }
             } else {
-                put(CalendarContract.Events.DTSTART, event.start.atZone(zone).toInstant().toEpochMilli())
+                val startMs = event.start.withSecond(0).withNano(0).atZone(zone).toInstant().toEpochMilli()
+                put(CalendarContract.Events.DTSTART, startMs)
                 put(CalendarContract.Events.EVENT_TIMEZONE, event.timezone)
                 
                 if (event.rrule != null) {
                     put(CalendarContract.Events.RRULE, event.rrule)
-                    val duration = java.time.Duration.between(event.start, event.end)
+                    val duration = java.time.Duration.between(event.start.withSecond(0).withNano(0), event.end.withSecond(0).withNano(0))
                     put(CalendarContract.Events.DURATION, "P${duration.seconds}S")
                     putNull(CalendarContract.Events.DTEND)
                 } else {
-                    put(CalendarContract.Events.DTEND, event.end.atZone(zone).toInstant().toEpochMilli())
+                    val endMs = event.end.withSecond(0).withNano(0).atZone(zone).toInstant().toEpochMilli()
+                    put(CalendarContract.Events.DTEND, endMs)
                     putNull(CalendarContract.Events.RRULE)
                     putNull(CalendarContract.Events.DURATION)
                 }
@@ -421,13 +444,15 @@ class CalendarRepository(private val context: Context) {
             "${CalendarContract.Reminders.EVENT_ID} = ?",
             arrayOf(eventId.toString())
         )
-        if (event.reminderMinutes != null && !event.allDay) {
-            val rv = ContentValues().apply {
-                put(CalendarContract.Reminders.EVENT_ID, eventId)
-                put(CalendarContract.Reminders.MINUTES, event.reminderMinutes)
-                put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT)
+        if (event.reminders.isNotEmpty() && !event.allDay) {
+            event.reminders.forEach { mins ->
+                val rv = ContentValues().apply {
+                    put(CalendarContract.Reminders.EVENT_ID, eventId)
+                    put(CalendarContract.Reminders.MINUTES, mins)
+                    put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT)
+                }
+                resolver.insert(CalendarContract.Reminders.CONTENT_URI, rv)
             }
-            resolver.insert(CalendarContract.Reminders.CONTENT_URI, rv)
         }
         notifyChanged()
         return rows > 0

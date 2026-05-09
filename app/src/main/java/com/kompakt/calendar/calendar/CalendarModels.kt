@@ -34,7 +34,7 @@ data class CalendarEvent(
     val rrule: String?,
     val timezone: String?,
     val hasReminder: Boolean,
-    val reminderMinutes: Int? = null
+    val reminders: List<Int> = emptyList()
 ) {
     fun occursOn(date: LocalDate): Boolean {
         val s = start.toLocalDate()

@@ -42,6 +42,7 @@ fun AgendaScreen(
     viewModel: CalendarViewModel = viewModel()
 ) {
     val events by viewModel.upcomingEvents.collectAsState()
+    val useAmericanDateFormat by viewModel.useAmericanDateFormat.collectAsState()
     val hasPermission by viewModel.hasPermission.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.refreshPermission() }
@@ -105,6 +106,7 @@ fun AgendaScreen(
                     val groupedEvents = remember(events) { events.groupBy { it.start.toLocalDate() } }
                     AgendaList(
                         groupedEvents = groupedEvents,
+                        useAmericanDateFormat = useAmericanDateFormat,
                         onEventClick = { event ->
                             navController.navigate("event_detail/${event.id}")
                         }
@@ -118,6 +120,7 @@ fun AgendaScreen(
 @Composable
 private fun AgendaList(
     groupedEvents: Map<LocalDate, List<CalendarEvent>>,
+    useAmericanDateFormat: Boolean,
     onEventClick: (CalendarEvent) -> Unit
 ) {
     val state = rememberLazyListState()
@@ -139,7 +142,7 @@ private fun AgendaList(
         ) {
             groupedEvents.forEach { (date, dayEvents) ->
                 item(key = date) {
-                    AgendaHeader(date)
+                    AgendaHeader(date, useAmericanDateFormat)
                 }
                 itemsIndexed(dayEvents, key = { _, e -> e.id }) { index, event ->
                     AgendaItem(event) { onEventClick(event) }
@@ -157,12 +160,13 @@ private fun AgendaList(
 }
 
 @Composable
-fun AgendaHeader(date: LocalDate) {
+fun AgendaHeader(date: LocalDate, useAmericanDateFormat: Boolean) {
     val today = LocalDate.now()
+    val pattern = if (useAmericanDateFormat) "EEEE, MMMM d" else "EEEE, d MMMM"
     val label = when (date) {
         today -> "Today"
         today.plusDays(1) -> "Tomorrow"
-        else -> date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault()))
+        else -> date.format(DateTimeFormatter.ofPattern(pattern, Locale.getDefault()))
     }
 
     Column {

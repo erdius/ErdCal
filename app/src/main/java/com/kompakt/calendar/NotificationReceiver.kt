@@ -31,6 +31,7 @@ class NotificationReceiver : BroadcastReceiver() {
         var startMs = intent.getLongExtra(EXTRA_START_MS, -1L)
         var endMs = intent.getLongExtra(EXTRA_END_MS, -1L)
         var isReminder = intent.getBooleanExtra(EXTRA_IS_REMINDER, false)
+        val isSnooze = intent.getBooleanExtra("is_snooze", false)
         var reminderMinutes = if (intent.hasExtra(EXTRA_REMINDER_MINUTES)) {
             intent.getIntExtra(EXTRA_REMINDER_MINUTES, 0)
         } else null
@@ -43,7 +44,9 @@ class NotificationReceiver : BroadcastReceiver() {
             // Query basic info if missing
             val projection = arrayOf(
                 android.provider.CalendarContract.Events.TITLE,
-                android.provider.CalendarContract.Events.ALL_DAY
+                android.provider.CalendarContract.Events.ALL_DAY,
+                android.provider.CalendarContract.Events.DTSTART,
+                android.provider.CalendarContract.Events.DTEND
             )
             context.contentResolver.query(
                 android.content.ContentUris.withAppendedId(android.provider.CalendarContract.Events.CONTENT_URI, eventId),
@@ -51,6 +54,8 @@ class NotificationReceiver : BroadcastReceiver() {
             )?.use { c ->
                 if (c.moveToFirst()) {
                     title = c.getString(0)
+                    if (startMs == -1L) startMs = (c.getLong(2) / 60_000L) * 60_000L
+                    if (endMs == -1L) endMs = (c.getLong(3) / 60_000L) * 60_000L
                     // If it's a system broadcast, we treat it as a reminder if it's not starting exactly now?
                     // Actually, the system sends this for both.
                     isReminder = true 
@@ -62,8 +67,11 @@ class NotificationReceiver : BroadcastReceiver() {
         val displayTitle = title ?: "(No title)"
         val displayIsReminder = isReminder
         val displayMinutes = reminderMinutes ?: 0
+        val nId = notificationId(eventId, displayIsReminder, isSnooze)
 
-        val contentText = if (displayIsReminder) {
+        val contentText = if (isSnooze) {
+            "Snoozed alert (${displayMinutes}m)"
+        } else if (displayIsReminder) {
             when {
                 displayMinutes >= 60 * 24 -> {
                     val days = displayMinutes / (60 * 24)
@@ -87,7 +95,7 @@ class NotificationReceiver : BroadcastReceiver() {
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            notificationId(eventId, displayIsReminder),
+            nId,
             openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -100,7 +108,7 @@ class NotificationReceiver : BroadcastReceiver() {
         }
         val fullScreenIntent = PendingIntent.getActivity(
             context,
-            notificationId(eventId, displayIsReminder) + 100,
+            nId + 1000,
             alertIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -126,15 +134,20 @@ class NotificationReceiver : BroadcastReceiver() {
         }
 
         try {
-            NotificationManagerCompat.from(context)
-                .notify(notificationId(eventId, displayIsReminder), notification)
+            val nm = NotificationManagerCompat.from(context)
+            // Cancel existing one to ensure fullScreenIntent triggers if it's already showing
+            nm.cancel(nId)
+            nm.notify(nId, notification)
         } catch (e: SecurityException) {
             Log.w("NotificationReceiver", "Failed to post notification", e)
         }
     }
 }
 
-fun notificationId(eventId: Long, isReminder: Boolean): Int {
-    val base = (eventId xor (eventId ushr 32)).toInt() and 0x7FFFFFFE
-    return base or (if (isReminder) 1 else 0)
+fun notificationId(eventId: Long, isReminder: Boolean, isSnooze: Boolean = false): Int {
+    var h = eventId.hashCode()
+    h = h * 31 + (if (isReminder) 1 else 0)
+    h = h * 31 + (if (isSnooze) 1 else 0)
+    return h
 }
+

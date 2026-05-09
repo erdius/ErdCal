@@ -54,6 +54,7 @@ fun DayViewScreen(
     val agendaPage by viewModel.agendaPage.collectAsState()
     val hasPermission by viewModel.hasPermission.collectAsState()
     val events by viewModel.dayEvents.collectAsState()
+    val useAmericanDateFormat by viewModel.useAmericanDateFormat.collectAsState()
 
     var eventColumnOffset by remember { mutableIntStateOf(0) }
     LaunchedEffect(selectedDate) { eventColumnOffset = 0 }
@@ -74,8 +75,13 @@ fun DayViewScreen(
                                 fontSize = 12.sp,
                                 lineHeight = 12.sp
                             )
+                            val dateText = if (useAmericanDateFormat) {
+                                "${selectedDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${selectedDate.dayOfMonth}"
+                            } else {
+                                "${selectedDate.dayOfMonth} ${selectedDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())}"
+                            }
                             TextMMD(
-                                text = "${selectedDate.dayOfMonth} ${selectedDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())}",
+                                text = dateText,
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
                                 lineHeight = 22.sp
@@ -126,7 +132,7 @@ fun DayViewScreen(
                 hasPermission = hasPermission,
                 onPermissionGranted = { viewModel.refreshPermission() }
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxSize()
                         .pointerInput(agendaPage) {
@@ -147,20 +153,23 @@ fun DayViewScreen(
                             )
                         }
                 ) {
-
-                    val allDay = events.filter { it.allDay }
-                    if (allDay.isNotEmpty()) {
-                        AllDayBar(allDay) { ev ->
-                            navController.navigate("event_detail/${ev.id}")
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        val allDay = events.filter { it.allDay }
+                        if (allDay.isNotEmpty()) {
+                            AllDayBar(allDay) { ev ->
+                                navController.navigate("event_detail/${ev.id}")
+                            }
                         }
-                    }
 
-                    Row(modifier = Modifier.fillMaxSize()) {
                         val hours = getHoursForPage(agendaPage)
                         val timedEvents = events.filter { !it.allDay }
 
-                        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            val slotHeight = maxHeight / 12
+                        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                            val slotHeight = this.maxHeight / 12
 
                             Column(modifier = Modifier.fillMaxSize()) {
                                 hours.forEach { hour ->
@@ -178,12 +187,12 @@ fun DayViewScreen(
                                 onEventClick = { ev -> navController.navigate("event_detail/${ev.id}") }
                             )
                         }
-
-                        DayViewScrollIndicator(
-                            currentPage = agendaPage,
-                            onPageSelected = { viewModel.setAgendaPage(it) }
-                        )
                     }
+
+                    DayViewScrollIndicator(
+                        currentPage = agendaPage,
+                        onPageSelected = { viewModel.setAgendaPage(it) }
+                    )
                 }
             }
         }
@@ -342,7 +351,7 @@ fun TimeGridOverlay(
                 }
             }
     ) {
-        val totalWidth = maxWidth
+        val totalWidth = this.maxWidth
 
         groups.forEach { group ->
             val count = group.size

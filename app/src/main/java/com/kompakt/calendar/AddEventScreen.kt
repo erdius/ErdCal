@@ -67,8 +67,9 @@ fun AddEventScreen(
     val endTime by viewModel.draftEndTime.collectAsState()
     val isAllDay by viewModel.draftIsAllDay.collectAsState()
     val selectedCalendarId by viewModel.draftCalendarId.collectAsState()
-    val selectedReminderMinutes by viewModel.draftReminderMinutes.collectAsState()
+    val selectedReminders by viewModel.draftReminders.collectAsState()
     val rrule by viewModel.draftRrule.collectAsState()
+    val useAmericanDateFormat by viewModel.useAmericanDateFormat.collectAsState()
     val rruleUntil by viewModel.draftRruleUntil.collectAsState()
     val rruleDays by viewModel.draftRruleDays.collectAsState()
     val location by viewModel.draftLocation.collectAsState()
@@ -98,6 +99,7 @@ fun AddEventScreen(
 
     var isPickingFrom by remember { mutableStateOf(true) }
     var showReminderPicker by remember { mutableStateOf(false) }
+    var showCustomReminderPicker by remember { mutableStateOf(false) }
     var showCalendarPicker by remember { mutableStateOf(false) }
     var showRecurrencePicker by remember { mutableStateOf(false) }
 
@@ -206,7 +208,7 @@ fun AddEventScreen(
                                             rruleUntil = rruleUntil,
                                             rruleDays = rruleDays
                                         ),
-                                        reminderMinutes = selectedReminderMinutes
+                                        reminders = selectedReminders
                                     )
                                     if (ok) {
                                         navController.popBackStack()
@@ -255,24 +257,26 @@ fun AddEventScreen(
 
                     item {
                         Row(modifier = Modifier.fillMaxWidth()) {
-                            HeaderTab(
-                                label = "FROM",
-                                time = startTime,
-                                date = startDate,
-                                isSelected = isPickingFrom,
-                                isAllDay = isAllDay,
-                                onClick = { isPickingFrom = true },
-                                modifier = Modifier.weight(1f)
-                            )
-                            HeaderTab(
-                                label = "TO",
-                                time = endTime,
-                                date = endDate,
-                                isSelected = !isPickingFrom,
-                                isAllDay = isAllDay,
-                                onClick = { isPickingFrom = false },
-                                modifier = Modifier.weight(1f)
-                            )
+                        HeaderTab(
+                            label = "FROM",
+                            time = startTime,
+                            date = startDate,
+                            isSelected = isPickingFrom,
+                            isAllDay = isAllDay,
+                            useAmericanDateFormat = useAmericanDateFormat,
+                            onClick = { isPickingFrom = true },
+                            modifier = Modifier.weight(1f)
+                        )
+                        HeaderTab(
+                            label = "TO",
+                            time = endTime,
+                            date = endDate,
+                            isSelected = !isPickingFrom,
+                            isAllDay = isAllDay,
+                            useAmericanDateFormat = useAmericanDateFormat,
+                            onClick = { isPickingFrom = false },
+                            modifier = Modifier.weight(1f)
+                        )
                         }
                     }
 
@@ -283,6 +287,7 @@ fun AddEventScreen(
                             date = if (isPickingFrom) startDate else endDate,
                             time = if (isPickingFrom) startTime else endTime,
                             isAllDay = isAllDay,
+                            useAmericanDateFormat = useAmericanDateFormat,
                             onDateChange = {
                                 if (isPickingFrom) {
                                     viewModel.updateDraftStartDate(it)
@@ -345,10 +350,16 @@ fun AddEventScreen(
                     }
 
                     item {
+                        val reminderText = if (selectedReminders.isEmpty()) {
+                            "No reminder"
+                        } else {
+                            selectedReminders.joinToString(", ") { mins ->
+                                reminderOptions.find { it.second == mins }?.first ?: formatMinutes(mins)
+                            }
+                        }
                         OptionRow(
                             icon = Icons.Outlined.NotificationsNone,
-                            title = reminderOptions.find { it.second == selectedReminderMinutes }?.first
-                                ?: "No reminder",
+                            title = reminderText,
                             hasChevron = true,
                             onClick = { showReminderPicker = true },
                             enabled = !isAllDay
@@ -434,12 +445,25 @@ fun AddEventScreen(
         if (showReminderPicker) {
             ReminderPickerOverlay(
                 options = reminderOptions,
-                selectedMinutes = selectedReminderMinutes,
+                selectedReminders = selectedReminders,
                 onPick = {
-                    viewModel.updateDraftReminderMinutes(it)
+                    viewModel.updateDraftReminders(it)
+                },
+                onCustomClick = {
                     showReminderPicker = false
+                    showCustomReminderPicker = true
                 },
                 onDismiss = { showReminderPicker = false }
+            )
+        }
+
+        if (showCustomReminderPicker) {
+            CustomReminderPickerOverlay(
+                onPick = { minutes ->
+                    viewModel.updateDraftReminders(selectedReminders + minutes)
+                    showCustomReminderPicker = false
+                },
+                onDismiss = { showCustomReminderPicker = false }
             )
         }
 
@@ -450,6 +474,7 @@ fun AddEventScreen(
                 selectedUntil = rruleUntil,
                 selectedDays = viewModel.draftRruleDays.collectAsState().value,
                 startDate = startDate,
+                useAmericanDateFormat = useAmericanDateFormat,
                 onPick = { rule, until, days ->
                     viewModel.updateDraftRrule(rule)
                     viewModel.updateDraftRruleUntil(until)
@@ -469,6 +494,7 @@ private fun RecurrencePickerOverlay(
     selectedUntil: LocalDate?,
     selectedDays: Set<Int>,
     startDate: LocalDate,
+    useAmericanDateFormat: Boolean,
     onPick: (String?, LocalDate?, Set<Int>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -635,8 +661,9 @@ private fun RecurrencePickerOverlay(
                                         fontWeight = FontWeight.Bold
                                     )
                                     if (currentUntil != null) {
+                                        val pattern = if (useAmericanDateFormat) "EEE, MMM d yyyy" else "EEE, d MMM yyyy"
                                         TextMMD(
-                                            text = "Until ${currentUntil?.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.US))}",
+                                            text = "Until ${currentUntil?.format(DateTimeFormatter.ofPattern(pattern, Locale.US))}",
                                             fontSize = 12.sp,
                                             color = Color.Gray
                                         )
@@ -689,8 +716,9 @@ private fun RecurrencePickerOverlay(
 @Composable
 private fun ReminderPickerOverlay(
     options: List<Pair<String, Int?>>,
-    selectedMinutes: Int?,
-    onPick: (Int?) -> Unit,
+    selectedReminders: List<Int>,
+    onPick: (List<Int>) -> Unit,
+    onCustomClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -715,16 +743,28 @@ private fun ReminderPickerOverlay(
                     Icon(Icons.Default.Close, contentDescription = "Close")
                 }
                 TextMMD(
-                    "Set Reminder",
+                    "Set Reminders",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = 8.dp).weight(1f)
                 )
+                ButtonMMD(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    TextMMD("Done", fontWeight = FontWeight.Bold)
+                }
             }
 
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
 
             Row(modifier = Modifier.fillMaxSize()) {
+                val fullOptions = remember(options, selectedReminders) {
+                    val customOptions = selectedReminders
+                        .filter { mins -> options.none { it.second == mins } }
+                        .map { formatMinutes(it) to it as Int? }
+                    options + customOptions
+                }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -734,11 +774,22 @@ private fun ReminderPickerOverlay(
                         .padding(16.dp),
                     userScrollEnabled = false
                 ) {
-                    items(options) { (label, minutes) ->
+                    items(fullOptions) { (label, minutes) ->
+                        val isSelected = if (minutes == null) selectedReminders.isEmpty() else selectedReminders.contains(minutes)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onPick(minutes) }
+                                .clickable {
+                                    if (minutes == null) {
+                                        onPick(emptyList())
+                                    } else {
+                                        if (isSelected) {
+                                            onPick(selectedReminders - minutes)
+                                        } else {
+                                            onPick(selectedReminders + minutes)
+                                        }
+                                    }
+                                }
                                 .padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -746,14 +797,48 @@ private fun ReminderPickerOverlay(
                             TextMMD(
                                 label,
                                 fontSize = 18.sp,
-                                fontWeight = if (selectedMinutes == minutes) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
-                            RadioButtonMMD(
-                                selected = selectedMinutes == minutes,
-                                onClick = { onPick(minutes) }
-                            )
+                            if (minutes == null) {
+                                RadioButtonMMD(
+                                    selected = isSelected,
+                                    onClick = { onPick(emptyList()) }
+                                )
+                            } else {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = {
+                                        if (isSelected) {
+                                            onPick(selectedReminders - minutes)
+                                        } else {
+                                            onPick(selectedReminders + minutes)
+                                        }
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color.Black,
+                                        uncheckedColor = Color.Black,
+                                        checkmarkColor = Color.White
+                                    )
+                                )
+                            }
                         }
                         HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
+                    }
+
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onCustomClick() }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextMMD(
+                                "Custom...",
+                                fontSize = 18.sp,
+                                color = Color.Gray
+                            )
+                        }
                     }
                 }
                 if (isScrollable) {
@@ -763,6 +848,95 @@ private fun ReminderPickerOverlay(
         }
     }
 }
+
+@Composable
+private fun CustomReminderPickerOverlay(
+    onPick: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var amount by remember { mutableIntStateOf(10) }
+    var unit by remember { mutableStateOf("minutes") }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = Color.White
+    ) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close")
+                }
+                TextMMD(
+                    "Custom Reminder",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp).weight(1f)
+                )
+                ButtonMMD(
+                    onClick = {
+                        val minutes = when (unit) {
+                            "minutes" -> amount
+                            "hours" -> amount * 60
+                            "days" -> amount * 1440
+                            "weeks" -> amount * 10080
+                            else -> amount
+                        }
+                        onPick(minutes)
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    TextMMD("Add", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    PickerColumn(
+                        modifier = Modifier.width(100.dp),
+                        label = amount.toString(),
+                        onUp = { if (amount < 999) amount++ },
+                        onDown = { if (amount > 1) amount-- },
+                        prevLabels = listOf((amount - 2).toString(), (amount - 1).toString()).filter { it.toInt() > 0 },
+                        nextLabels = listOf((amount + 1).toString(), (amount + 2).toString())
+                    )
+
+                    val units = listOf("minutes", "hours", "days", "weeks")
+                    val unitIndex = units.indexOf(unit)
+                    
+                    PickerColumn(
+                        modifier = Modifier.width(140.dp),
+                        label = unit,
+                        onUp = { unit = units[(unitIndex - 1 + units.size) % units.size] },
+                        onDown = { unit = units[(unitIndex + 1) % units.size] },
+                        prevLabels = listOf(units[(unitIndex - 2 + units.size) % units.size], units[(unitIndex - 1 + units.size) % units.size]),
+                        nextLabels = listOf(units[(unitIndex + 1) % units.size], units[(unitIndex + 2) % units.size])
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                TextMMD("before the event", fontSize = 16.sp)
+            }
+        }
+    }
+}
+
 
 @Composable
 private fun CalendarPickerOverlay(
@@ -855,6 +1029,16 @@ private fun CalendarPickerOverlay(
     }
 }
 
+private fun formatMinutes(minutes: Int): String {
+    return when {
+        minutes % 10080 == 0 -> "${minutes / 10080} week${if (minutes / 10080 > 1) "s" else ""} before"
+        minutes % 1440 == 0 -> "${minutes / 1440} day${if (minutes / 1440 > 1) "s" else ""} before"
+        minutes % 60 == 0 -> "${minutes / 60} hour${if (minutes / 60 > 1) "s" else ""} before"
+        else -> "$minutes minutes before"
+    }
+}
+
+
 @Composable
 fun HeaderTab(
     label: String,
@@ -862,6 +1046,7 @@ fun HeaderTab(
     date: LocalDate,
     isSelected: Boolean,
     isAllDay: Boolean,
+    useAmericanDateFormat: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -873,6 +1058,7 @@ fun HeaderTab(
         val context = LocalContext.current
         val is24Hour = DateFormat.is24HourFormat(context)
         val timePattern = if (is24Hour) "HH:mm" else "h:mm a"
+        val datePattern = if (useAmericanDateFormat) "EEE MMM d" else "EEE d MMM"
 
         TextMMD(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.Black else Color.Gray)
         Column(
@@ -889,7 +1075,7 @@ fun HeaderTab(
                 )
             }
             TextMMD(
-                text = if (date == LocalDate.now()) "Today" else date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.US)),
+                text = if (date == LocalDate.now()) "Today" else date.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)),
                 fontSize = if (isAllDay) 18.sp else 10.sp,
                 fontWeight = if (isAllDay) FontWeight.Bold else FontWeight.Normal,
                 color = if (isSelected) Color.Black else Color.Gray
@@ -908,6 +1094,7 @@ fun EventPicker(
     date: LocalDate,
     time: LocalTime,
     isAllDay: Boolean,
+    useAmericanDateFormat: Boolean,
     onDateChange: (LocalDate) -> Unit,
     onTimeChange: (LocalTime) -> Unit
 ) {
@@ -916,18 +1103,19 @@ fun EventPicker(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val datePattern = if (useAmericanDateFormat) "EEE MMM d" else "EEE d MMM"
         PickerColumn(
             modifier = Modifier.weight(5f),
-            label = if (date == LocalDate.now()) "Today" else date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.US)),
+            label = if (date == LocalDate.now()) "Today" else date.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)),
             onUp = { onDateChange(date.minusDays(1)) },
             onDown = { onDateChange(date.plusDays(1)) },
             prevLabels = listOf(
-                date.minusDays(2).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.US)) },
-                date.minusDays(1).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.US)) }
+                date.minusDays(2).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)) },
+                date.minusDays(1).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)) }
             ),
             nextLabels = listOf(
-                date.plusDays(1).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.US)) },
-                date.plusDays(2).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.US)) }
+                date.plusDays(1).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)) },
+                date.plusDays(2).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)) }
             ),
             isDate = true
         )

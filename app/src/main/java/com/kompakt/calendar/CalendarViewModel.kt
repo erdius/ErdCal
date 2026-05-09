@@ -62,12 +62,12 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     var draftTitle = MutableStateFlow("")
     var draftStartDate = MutableStateFlow(LocalDate.now())
     var draftEndDate = MutableStateFlow(LocalDate.now())
-    var draftStartTime = MutableStateFlow(java.time.LocalTime.now().withMinute(0).plusHours(1))
-    var draftEndTime = MutableStateFlow(java.time.LocalTime.now().withMinute(0).plusHours(2))
+    var draftStartTime = MutableStateFlow(java.time.LocalTime.now().withSecond(0).withNano(0).withMinute(0).plusHours(1))
+    var draftEndTime = MutableStateFlow(java.time.LocalTime.now().withSecond(0).withNano(0).withMinute(0).plusHours(2))
     var draftIsAllDay = MutableStateFlow(false)
     var draftLocation = MutableStateFlow("")
     var draftCalendarId = MutableStateFlow<Long?>(null)
-    var draftReminderMinutes = MutableStateFlow<Int?>(5)
+    var draftReminders = MutableStateFlow<List<Int>>(listOf(5))
     var draftRrule = MutableStateFlow<String?>(null)
     var draftRruleUntil = MutableStateFlow<LocalDate?>(null)
     var draftRruleDays = MutableStateFlow<Set<Int>>(emptySet())
@@ -80,7 +80,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     fun updateDraftIsAllDay(v: Boolean) { draftIsAllDay.value = v }
     fun updateDraftLocation(v: String) { draftLocation.value = v }
     fun updateDraftCalendarId(v: Long?) { draftCalendarId.value = v }
-    fun updateDraftReminderMinutes(v: Int?) { draftReminderMinutes.value = v }
+    fun updateDraftReminders(v: List<Int>) { draftReminders.value = v }
     fun updateDraftRrule(v: String?) { draftRrule.value = v }
     fun updateDraftRruleUntil(v: LocalDate?) { draftRruleUntil.value = v }
     fun updateDraftRruleDays(v: Set<Int>) { draftRruleDays.value = v }
@@ -141,6 +141,9 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
 
     val onboardingCompleted: StateFlow<Boolean> = prefs.onboardingCompleted
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val useAmericanDateFormat: StateFlow<Boolean> = prefs.useAmericanDateFormat
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     init {
         viewModelScope.launch {
@@ -219,13 +222,13 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         val selectedDay = _selectedDate.value
         draftStartDate.value = selectedDay
         draftEndDate.value = selectedDay
-        val time = java.time.LocalTime.now().withMinute(0).plusHours(1)
+        val time = java.time.LocalTime.now().withSecond(0).withNano(0).withMinute(0).plusHours(1)
         draftStartTime.value = time
         draftEndTime.value = time.plusHours(1)
         draftIsAllDay.value = false
         draftLocation.value = ""
         draftCalendarId.value = null
-        draftReminderMinutes.value = 5
+        draftReminders.value = listOf(5)
         draftRrule.value = null
         draftRruleUntil.value = null
         draftRruleDays.value = emptySet()
@@ -238,13 +241,13 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
 
         draftTitle.value = event.title
         draftStartDate.value = event.start.toLocalDate()
-        draftEndDate.value = event.end.toLocalDate()
+        draftEndDate.value = if (event.allDay) event.end.toLocalDate().minusDays(1) else event.end.toLocalDate()
         draftStartTime.value = event.start.toLocalTime()
         draftEndTime.value = event.end.toLocalTime()
         draftIsAllDay.value = event.allDay
         draftLocation.value = event.location ?: ""
         draftCalendarId.value = event.calendarId
-        draftReminderMinutes.value = event.reminderMinutes
+        draftReminders.value = event.reminders
         
         // Parse RRULE for UNTIL and BYDAY
         var baseRrule = event.rrule
@@ -290,7 +293,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         draftRruleDays.value = selectedDays
     }
 
-    suspend fun saveEvent(draft: EventDraft, reminderMinutes: Int?): Boolean {
+    suspend fun saveEvent(draft: EventDraft, reminders: List<Int>): Boolean {
         val cal = draft.calendarId ?: return false
         
         var finalRrule = draft.rrule
@@ -316,7 +319,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
             start = draft.startDate.atTime(draft.startTime),
             end = draft.endDate.atTime(draft.endTime),
             allDay = draft.allDay,
-            reminderMinutes = reminderMinutes,
+            reminders = reminders,
             rrule = finalRrule
         )
         val editId = _editingEventId.value
@@ -327,7 +330,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
                 val startMs = ne.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 val endMs = ne.end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 NotificationScheduler.scheduleEventNotifications(
-                    getApplication(), editId, ne.title, startMs, endMs, reminderMinutes
+                    getApplication(), editId, ne.title, startMs, endMs, reminders
                 )
             }
             ok
@@ -337,7 +340,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
                 val startMs = ne.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 val endMs = ne.end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 NotificationScheduler.scheduleEventNotifications(
-                    getApplication(), id, ne.title, startMs, endMs, reminderMinutes
+                    getApplication(), id, ne.title, startMs, endMs, reminders
                 )
             }
             id != null
@@ -384,6 +387,10 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         prefs.saveOnboardingCompleted(completed)
     }
 
+    suspend fun setUseAmericanDateFormat(use: Boolean) {
+        prefs.saveUseAmericanDateFormat(use)
+    }
+
     private fun getPageForCurrentTime(): Int {
         val hour = java.time.LocalTime.now().hour
         return when {
@@ -398,13 +405,13 @@ data class EventDraft(
     val title: String = "",
     val startDate: LocalDate = LocalDate.now(),
     val endDate: LocalDate = LocalDate.now(),
-    val startTime: java.time.LocalTime = java.time.LocalTime.now().withMinute(0).plusHours(1),
-    val endTime: java.time.LocalTime = java.time.LocalTime.now().withMinute(0).plusHours(2),
+    val startTime: java.time.LocalTime = java.time.LocalTime.now().withSecond(0).withNano(0).withMinute(0).plusHours(1),
+    val endTime: java.time.LocalTime = java.time.LocalTime.now().withSecond(0).withNano(0).withMinute(0).plusHours(2),
     val allDay: Boolean = false,
     val location: String = "",
     val calendarId: Long? = null,
     val description: String = "",
-    val reminderMinutes: Int? = null,
+    val reminders: List<Int> = emptyList(),
     val rrule: String? = null,
     val rruleUntil: LocalDate? = null,
     val rruleDays: Set<Int> = emptySet()
