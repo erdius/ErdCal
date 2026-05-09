@@ -913,8 +913,8 @@ private fun CustomReminderPickerOverlay(
                         label = amount.toString(),
                         onUp = { if (amount < 999) amount++ },
                         onDown = { if (amount > 1) amount-- },
-                        prevLabels = listOf((amount - 2).toString(), (amount - 1).toString()).filter { it.toInt() > 0 },
-                        nextLabels = listOf((amount + 1).toString(), (amount + 2).toString())
+                        prevLabels = listOf((amount + 2).toString(), (amount + 1).toString()),
+                        nextLabels = listOf((amount - 1).toString(), (amount - 2).toString()).filter { it.toInt() > 0 }
                     )
 
                     val units = listOf("minutes", "hours", "days", "weeks")
@@ -923,10 +923,10 @@ private fun CustomReminderPickerOverlay(
                     PickerColumn(
                         modifier = Modifier.width(140.dp),
                         label = unit,
-                        onUp = { unit = units[(unitIndex - 1 + units.size) % units.size] },
-                        onDown = { unit = units[(unitIndex + 1) % units.size] },
-                        prevLabels = listOf(units[(unitIndex - 2 + units.size) % units.size], units[(unitIndex - 1 + units.size) % units.size]),
-                        nextLabels = listOf(units[(unitIndex + 1) % units.size], units[(unitIndex + 2) % units.size])
+                        onUp = { unit = units[(unitIndex + 1) % units.size] },
+                        onDown = { unit = units[(unitIndex - 1 + units.size) % units.size] },
+                        prevLabels = listOf(units[(unitIndex + 2) % units.size], units[(unitIndex + 1) % units.size]),
+                        nextLabels = listOf(units[(unitIndex - 1 + units.size) % units.size], units[(unitIndex - 2 + units.size) % units.size])
                     )
                 }
                 
