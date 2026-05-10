@@ -39,6 +39,7 @@ import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
@@ -161,7 +162,8 @@ fun DayViewScreen(
                         val allDay = events.filter { it.allDay }
                         if (allDay.isNotEmpty()) {
                             AllDayBar(allDay) { ev ->
-                                navController.navigate("event_detail/${ev.id}")
+                                val time = ev.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                navController.navigate("event_detail/${ev.id}?instanceTime=$time")
                             }
                         }
 
@@ -184,7 +186,10 @@ fun DayViewScreen(
                                 events = timedEvents,
                                 columnOffset = eventColumnOffset,
                                 onColumnOffsetChange = { eventColumnOffset = it },
-                                onEventClick = { ev -> navController.navigate("event_detail/${ev.id}") }
+                                onEventClick = { ev ->
+                                    val time = ev.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                    navController.navigate("event_detail/${ev.id}?instanceTime=$time")
+                                }
                             )
                         }
                     }

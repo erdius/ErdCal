@@ -30,6 +30,7 @@ import com.kompakt.calendar.ui.eInkVerticalScroll
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import kotlinx.coroutines.launch
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
@@ -148,7 +149,10 @@ fun EventSearchScreen(
                         itemsIndexed(results) { index, event ->
                             EventSearchResultItem(
                                 event = event,
-                                onClick = { navController.navigate("event_detail/${event.id}") }
+                                onClick = {
+                                    val time = event.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                    navController.navigate("event_detail/${event.id}?instanceTime=$time")
+                                }
                             )
                             if (index < results.size - 1) {
                                 DashedDivider(modifier = Modifier.padding(start = 16.dp))

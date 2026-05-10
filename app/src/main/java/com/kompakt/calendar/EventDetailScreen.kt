@@ -22,7 +22,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.kompakt.calendar.calendar.CalendarEvent
+import com.kompakt.calendar.ui.common.DashedDivider
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
+import com.mudita.mmd.components.menus.DropdownMenuItemMMD
+import com.mudita.mmd.components.menus.DropdownMenuMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import kotlinx.coroutines.launch
@@ -34,12 +37,16 @@ import java.util.*
 fun EventDetailScreen(
     navController: NavController,
     eventId: Long,
+    instanceTime: Long? = null,
     viewModel: CalendarViewModel = viewModel()
 ) {
     var event by remember { mutableStateOf<CalendarEvent?>(null) }
     var loading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val useAmericanDateFormat by viewModel.useAmericanDateFormat.collectAsState()
+
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showEditConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(eventId) {
         scope.launch {
@@ -60,25 +67,92 @@ fun EventDetailScreen(
                     TextMMD(text = "Event Preview", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                viewModel.deleteEventById(eventId)
-                                navController.popBackStack()
+                    Box {
+                        IconButton(
+                            onClick = {
+                                if (event?.rrule.isNullOrBlank()) {
+                                    scope.launch {
+                                        viewModel.deleteEventById(eventId)
+                                        navController.popBackStack()
+                                    }
+                                } else {
+                                    showDeleteConfirm = true
+                                }
                             }
+                        ) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", modifier = Modifier.size(30.dp))
                         }
-                    ) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", modifier = Modifier.size(30.dp))
+
+                        DropdownMenuMMD(
+                            expanded = showDeleteConfirm,
+                            onDismissRequest = { showDeleteConfirm = false }
+                        ) {
+                            DropdownMenuItemMMD(
+                                text = { TextMMD("This event only", fontWeight = FontWeight.Bold, color = Color.Black) },
+                                onClick = {
+                                    showDeleteConfirm = false
+                                    scope.launch {
+                                        viewModel.deleteEventById(eventId, instanceTime ?: event?.start?.atZone(java.time.ZoneId.systemDefault())?.toInstant()?.toEpochMilli())
+                                        navController.popBackStack()
+                                    }
+                                }
+                            )
+                            DashedDivider()
+                            DropdownMenuItemMMD(
+                                text = { TextMMD("All events", fontWeight = FontWeight.Bold, color = Color.Black) },
+                                onClick = {
+                                    showDeleteConfirm = false
+                                    scope.launch {
+                                        viewModel.deleteEventById(eventId, null)
+                                        navController.popBackStack()
+                                    }
+                                }
+                            )
+                        }
                     }
-                    IconButton(
-                        onClick = {
-                            event?.let { ev ->
-                                viewModel.beginEditEvent(ev)
-                                navController.navigate("add_event?fromCalendar=false")
+
+                    Box {
+                        IconButton(
+                            onClick = {
+                                if (event?.rrule.isNullOrBlank()) {
+                                    event?.let { ev ->
+                                        viewModel.beginEditEvent(ev)
+                                        navController.navigate("add_event?fromCalendar=false")
+                                    }
+                                } else {
+                                    showEditConfirm = true
+                                }
                             }
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(30.dp))
                         }
-                    ) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(30.dp))
+
+                        DropdownMenuMMD(
+                            expanded = showEditConfirm,
+                            onDismissRequest = { showEditConfirm = false }
+                        ) {
+                            DropdownMenuItemMMD(
+                                text = { TextMMD("This event only", fontWeight = FontWeight.Bold, color = Color.Black) },
+                                onClick = {
+                                    showEditConfirm = false
+                                    event?.let { ev ->
+                                        viewModel.beginEditEvent(ev, instanceTime ?: ev.start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
+                                        navController.navigate("add_event?fromCalendar=false")
+                                    }
+                                }
+                            )
+                            DashedDivider()
+                            DropdownMenuItemMMD(
+                                text = { TextMMD("All events", fontWeight = FontWeight.Bold, color = Color.Black) },
+                                onClick = {
+                                    showEditConfirm = false
+                                    event?.let { ev ->
+                                        viewModel.beginEditEvent(ev, null)
+                                        navController.navigate("add_event?fromCalendar=false")
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             )

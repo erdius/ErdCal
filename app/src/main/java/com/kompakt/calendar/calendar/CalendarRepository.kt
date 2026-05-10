@@ -458,12 +458,79 @@ class CalendarRepository(private val context: Context) {
         return rows > 0
     }
 
+    suspend fun updateEventInstance(masterEventId: Long, instanceStartTimeMs: Long, event: NewEvent): Boolean {
+        if (!hasWritePermission()) return false
+        val zone = ZoneId.systemDefault()
+        val values = ContentValues().apply {
+            put(CalendarContract.Events.ORIGINAL_ID, masterEventId)
+            put(CalendarContract.Events.ORIGINAL_INSTANCE_TIME, instanceStartTimeMs)
+            put(CalendarContract.Events.CALENDAR_ID, event.calendarId)
+            put(CalendarContract.Events.TITLE, event.title)
+            put(CalendarContract.Events.DESCRIPTION, event.description ?: "")
+            put(CalendarContract.Events.EVENT_LOCATION, event.location ?: "")
+            put(CalendarContract.Events.ALL_DAY, if (event.allDay) 1 else 0)
+
+            if (event.allDay) {
+                val startUtc = event.start.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                put(CalendarContract.Events.DTSTART, startUtc)
+                put(CalendarContract.Events.EVENT_TIMEZONE, "UTC")
+                val endUtc = event.end.toLocalDate().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                put(CalendarContract.Events.DTEND, endUtc)
+            } else {
+                val startMs = event.start.withSecond(0).withNano(0).atZone(zone).toInstant().toEpochMilli()
+                put(CalendarContract.Events.DTSTART, startMs)
+                put(CalendarContract.Events.EVENT_TIMEZONE, event.timezone)
+                val endMs = event.end.withSecond(0).withNano(0).atZone(zone).toInstant().toEpochMilli()
+                put(CalendarContract.Events.DTEND, endMs)
+            }
+            // Exceptions typically don't have RRULE themselves in simple cases
+        }
+        val uri = resolver.insert(CalendarContract.Events.CONTENT_URI, values) ?: return false
+        val newId = ContentUris.parseId(uri)
+
+        // Add reminders to the new exception event
+        if (event.reminders.isNotEmpty() && !event.allDay) {
+            event.reminders.forEach { mins ->
+                val rv = ContentValues().apply {
+                    put(CalendarContract.Reminders.EVENT_ID, newId)
+                    put(CalendarContract.Reminders.MINUTES, mins)
+                    put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT)
+                }
+                resolver.insert(CalendarContract.Reminders.CONTENT_URI, rv)
+            }
+        }
+        notifyChanged()
+        return true
+    }
+
     suspend fun deleteEvent(eventId: Long): Boolean {
         if (!hasWritePermission()) return false
         val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
         val rows = resolver.delete(uri, null, null)
         notifyChanged()
         return rows > 0
+    }
+
+    suspend fun deleteEventInstance(masterEventId: Long, instanceStartTimeMs: Long): Boolean {
+        if (!hasWritePermission()) return false
+        val values = ContentValues().apply {
+            put(CalendarContract.Events.ORIGINAL_ID, masterEventId)
+            put(CalendarContract.Events.ORIGINAL_INSTANCE_TIME, instanceStartTimeMs)
+            put(CalendarContract.Events.STATUS, CalendarContract.Events.STATUS_CANCELED)
+            // We need to copy some basic info for the exception to be valid in some providers
+            val master = getEventById(masterEventId)
+            if (master != null) {
+                put(CalendarContract.Events.CALENDAR_ID, master.calendarId)
+                put(CalendarContract.Events.DTSTART, instanceStartTimeMs)
+                put(CalendarContract.Events.DTEND, instanceStartTimeMs + (master.end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() - master.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))
+                put(CalendarContract.Events.EVENT_TIMEZONE, master.timezone ?: ZoneId.systemDefault().id)
+                put(CalendarContract.Events.ALL_DAY, if (master.allDay) 1 else 0)
+                put(CalendarContract.Events.TITLE, master.title)
+            }
+        }
+        val uri = resolver.insert(CalendarContract.Events.CONTENT_URI, values)
+        notifyChanged()
+        return uri != null
     }
 
     suspend fun searchEvents(query: String, fromDaysBack: Long = 30, toDaysAhead: Long = 365): List<CalendarEvent> {

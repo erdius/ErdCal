@@ -8,6 +8,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
                         NavHost(
                             navController = navController,
                             startDestination = "calendar",
+                            modifier = Modifier.padding(innerPadding),
                             enterTransition = { EnterTransition.None },
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
@@ -105,16 +107,23 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable(
-                                route = "event_detail/{eventId}",
+                                route = "event_detail/{eventId}?instanceTime={instanceTime}",
                                 arguments = listOf(
-                                    navArgument("eventId") { type = NavType.LongType }
+                                    navArgument("eventId") { type = NavType.LongType },
+                                    navArgument("instanceTime") {
+                                        type = NavType.LongType
+                                        defaultValue = -1L
+                                    }
                                 )
                             ) { backStackEntry ->
                                 val eventId =
                                     backStackEntry.arguments?.getLong("eventId") ?: return@composable
+                                val instanceTime =
+                                    backStackEntry.arguments?.getLong("instanceTime")?.let { if (it == -1L) null else it }
                                 EventDetailScreen(
                                     navController = navController,
                                     eventId = eventId,
+                                    instanceTime = instanceTime,
                                     viewModel = calendarViewModel
                                 )
                             }

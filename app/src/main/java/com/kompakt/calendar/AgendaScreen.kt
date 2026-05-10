@@ -32,6 +32,7 @@ import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
@@ -103,12 +104,29 @@ fun AgendaScreen(
                         TextMMD("No upcoming events")
                     }
                 } else {
-                    val groupedEvents = remember(events) { events.groupBy { it.start.toLocalDate() } }
+                    val groupedEvents = remember(events) {
+                        val today = LocalDate.now()
+                        val horizon = today.plusMonths(3)
+                        val map = mutableMapOf<LocalDate, MutableList<CalendarEvent>>()
+
+                        events.forEach { ev ->
+                            val start = ev.start.toLocalDate()
+                            val end = if (ev.allDay) ev.end.toLocalDate().minusDays(1) else ev.end.toLocalDate()
+
+                            var current = if (start.isBefore(today)) today else start
+                            while (!current.isAfter(end) && !current.isAfter(horizon)) {
+                                map.getOrPut(current) { mutableListOf() }.add(ev)
+                                current = current.plusDays(1)
+                            }
+                        }
+                        map.toSortedMap()
+                    }
                     AgendaList(
                         groupedEvents = groupedEvents,
                         useAmericanDateFormat = useAmericanDateFormat,
                         onEventClick = { event ->
-                            navController.navigate("event_detail/${event.id}")
+                            val time = event.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                            navController.navigate("event_detail/${event.id}?instanceTime=$time")
                         }
                     )
                 }
@@ -144,7 +162,7 @@ private fun AgendaList(
                 item(key = date) {
                     AgendaHeader(date, useAmericanDateFormat)
                 }
-                itemsIndexed(dayEvents, key = { _, e -> e.id }) { index, event ->
+                itemsIndexed(dayEvents, key = { _, e -> "${date}_${e.id}_${e.start}" }) { index, event ->
                     AgendaItem(event) { onEventClick(event) }
                     if (index < dayEvents.size - 1) {
                         DashedDivider(modifier = Modifier.padding(start = 16.dp))

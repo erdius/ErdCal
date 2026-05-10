@@ -54,6 +54,9 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     private val _editingEventId = MutableStateFlow<Long?>(null)
     val editingEventId: StateFlow<Long?> = _editingEventId.asStateFlow()
 
+    private val _editingInstanceTime = MutableStateFlow<Long?>(null)
+    val editingInstanceTime: StateFlow<Long?> = _editingInstanceTime.asStateFlow()
+
     /** Pre-fill state passed into AddEventScreen when editing. */
     private val _eventDraft = MutableStateFlow<EventDraft?>(null)
     val eventDraft: StateFlow<EventDraft?> = _eventDraft.asStateFlow()
@@ -215,6 +218,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
 
     fun beginNewEvent() {
         _editingEventId.value = null
+        _editingInstanceTime.value = null
         _eventDraft.value = null
         _eventNote.value = ""
 
@@ -234,8 +238,9 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         draftRruleDays.value = emptySet()
     }
 
-    fun beginEditEvent(event: CalendarEvent) {
+    fun beginEditEvent(event: CalendarEvent, instanceTime: Long? = null) {
         _editingEventId.value = event.id
+        _editingInstanceTime.value = instanceTime
         _eventNote.value = event.description ?: ""
         _selectedDate.value = event.start.toLocalDate()
 
@@ -323,8 +328,13 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
             rrule = finalRrule
         )
         val editId = _editingEventId.value
+        val instanceTime = _editingInstanceTime.value
         return if (editId != null) {
-            val ok = repo.updateEvent(editId, ne)
+            val ok = if (instanceTime != null) {
+                repo.updateEventInstance(editId, instanceTime, ne)
+            } else {
+                repo.updateEvent(editId, ne)
+            }
             if (ok) {
                 NotificationScheduler.cancelEventNotifications(getApplication(), editId)
                 val startMs = ne.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -349,13 +359,22 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun deleteCurrentEvent(): Boolean {
         val id = _editingEventId.value ?: return false
+        val instanceTime = _editingInstanceTime.value
         NotificationScheduler.cancelEventNotifications(getApplication(), id)
-        return repo.deleteEvent(id)
+        return if (instanceTime != null) {
+            repo.deleteEventInstance(id, instanceTime)
+        } else {
+            repo.deleteEvent(id)
+        }
     }
 
-    suspend fun deleteEventById(id: Long): Boolean {
+    suspend fun deleteEventById(id: Long, instanceTime: Long? = null): Boolean {
         NotificationScheduler.cancelEventNotifications(getApplication(), id)
-        return repo.deleteEvent(id)
+        return if (instanceTime != null) {
+            repo.deleteEventInstance(id, instanceTime)
+        } else {
+            repo.deleteEvent(id)
+        }
     }
 
     suspend fun loadEventById(id: Long): CalendarEvent? = repo.getEventById(id)
