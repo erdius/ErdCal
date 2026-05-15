@@ -11,11 +11,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -28,13 +30,26 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,6 +58,7 @@ import com.kompakt.calendar.calendar.CalendarAccount
 import com.kompakt.calendar.ui.EInkScrollbar
 import com.kompakt.calendar.ui.eInkVerticalScroll
 import com.mudita.mmd.components.buttons.ButtonMMD
+import com.mudita.mmd.components.checkbox.CheckboxMMD
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.radio_button.RadioButtonMMD
 import com.mudita.mmd.components.switcher.SwitchMMD
@@ -78,7 +94,6 @@ fun AddEventScreen(
     val editingId by viewModel.editingEventId.collectAsState()
     val calendars by viewModel.calendarsLive.collectAsState()
     val defaultCalendarId by viewModel.defaultCalendarId.collectAsState()
-    val defaultReminderMinutes by viewModel.defaultReminderMinutes.collectAsState()
     
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
@@ -97,7 +112,6 @@ fun AddEventScreen(
         }
     }
 
-    var isPickingFrom by remember { mutableStateOf(true) }
     var showReminderPicker by remember { mutableStateOf(false) }
     var showCustomReminderPicker by remember { mutableStateOf(false) }
     var showCalendarPicker by remember { mutableStateOf(false) }
@@ -106,7 +120,6 @@ fun AddEventScreen(
     val reminderOptions = remember(isAllDay) {
         if (isAllDay) {
             listOf(
-                "No reminder" to null,
                 "On the day (8:00 am)" to -480,
                 "On the day (9:00 am)" to -540,
                 "Day before (6:00 pm)" to 360,
@@ -117,13 +130,11 @@ fun AddEventScreen(
             )
         } else {
             listOf(
-                "No reminder" to null,
                 "5 minutes before" to 5,
                 "10 minutes before" to 10,
                 "15 minutes before" to 15,
                 "30 minutes before" to 30,
                 "1 hour before" to 60,
-                "2 hours before" to 120,
                 "1 day before" to 1440,
                 "1 week before" to 10080
             )
@@ -256,58 +267,34 @@ fun AddEventScreen(
                     item { Spacer(modifier = Modifier.height(12.dp)) }
 
                     item {
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                        HeaderTab(
+                        DateTimeRow(
                             label = "FROM",
-                            time = startTime,
                             date = startDate,
-                            isSelected = isPickingFrom,
-                            isAllDay = isAllDay,
-                            useAmericanDateFormat = useAmericanDateFormat,
-                            onClick = { isPickingFrom = true },
-                            modifier = Modifier.weight(1f)
-                        )
-                        HeaderTab(
-                            label = "TO",
-                            time = endTime,
-                            date = endDate,
-                            isSelected = !isPickingFrom,
-                            isAllDay = isAllDay,
-                            useAmericanDateFormat = useAmericanDateFormat,
-                            onClick = { isPickingFrom = false },
-                            modifier = Modifier.weight(1f)
-                        )
-                        }
-                    }
-
-                    item { Spacer(modifier = Modifier.height(4.dp)) }
-
-                    item {
-                        EventPicker(
-                            date = if (isPickingFrom) startDate else endDate,
-                            time = if (isPickingFrom) startTime else endTime,
+                            time = startTime,
                             isAllDay = isAllDay,
                             useAmericanDateFormat = useAmericanDateFormat,
                             onDateChange = {
-                                if (isPickingFrom) {
-                                    viewModel.updateDraftStartDate(it)
-                                    if (endDate.isBefore(it)) viewModel.updateDraftEndDate(it)
-                                } else {
-                                    viewModel.updateDraftEndDate(it)
-                                    if (it.isBefore(startDate)) viewModel.updateDraftStartDate(it)
-                                }
+                                viewModel.updateDraftStartDate(it)
+                                if (endDate.isBefore(it)) viewModel.updateDraftEndDate(it)
                             },
-                            onTimeChange = {
-                                if (isPickingFrom) {
-                                    viewModel.updateDraftStartTime(it)
-                                } else {
-                                    viewModel.updateDraftEndTime(it)
-                                }
-                            }
+                            onTimeChange = { viewModel.updateDraftStartTime(it) }
                         )
                     }
 
-                    item { Spacer(modifier = Modifier.height(4.dp)) }
+                    item {
+                        DateTimeRow(
+                            label = "TO",
+                            date = endDate,
+                            time = endTime,
+                            isAllDay = isAllDay,
+                            useAmericanDateFormat = useAmericanDateFormat,
+                            onDateChange = {
+                                viewModel.updateDraftEndDate(it)
+                                if (it.isBefore(startDate)) viewModel.updateDraftStartDate(it)
+                            },
+                            onTimeChange = { viewModel.updateDraftEndTime(it) }
+                        )
+                    }
 
                     item {
                         OptionRow(
@@ -328,7 +315,7 @@ fun AddEventScreen(
 
                     item {
                         OptionRow(
-                            icon = Icons.Default.CalendarMonth, // Reusing icon for repeat or find a better one
+                            icon = Icons.Default.CalendarMonth,
                             title = recurrenceOptions.find { it.second == rrule }?.first ?: "Does not repeat",
                             hasChevron = true,
                             onClick = { showRecurrencePicker = true }
@@ -753,86 +740,61 @@ private fun ReminderPickerOverlay(
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Black))
 
             Row(modifier = Modifier.fillMaxSize()) {
-                val fullOptions = remember(options, selectedReminders) {
-                    val customOptions = selectedReminders
-                        .filter { mins -> options.none { it.second == mins } }
-                        .map { formatMinutes(it) to it as Int? }
-                    options + customOptions
+                val predefinedOptions = remember(options) { options.filter { it.second != null } }
+                val customSelections = remember(options, selectedReminders) {
+                    selectedReminders.filter { mins -> options.none { it.second == mins } }
                 }
+
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         .eInkVerticalScroll(listState, scope, isScrollable)
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     userScrollEnabled = false
                 ) {
-                    items(fullOptions) { (label, minutes) ->
-                        val isSelected = if (minutes == null) selectedReminders.isEmpty() else selectedReminders.contains(minutes)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    if (minutes == null) {
-                                        onPick(emptyList())
-                                    } else {
-                                        if (isSelected) {
-                                            onPick(selectedReminders - minutes)
-                                        } else {
-                                            onPick(selectedReminders + minutes)
-                                        }
-                                    }
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TextMMD(
-                                label,
-                                fontSize = 18.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                            if (minutes == null) {
-                                RadioButtonMMD(
-                                    selected = isSelected,
-                                    onClick = { onPick(emptyList()) }
-                                )
-                            } else {
-                                Checkbox(
-                                    checked = isSelected,
-                                    onCheckedChange = {
-                                        if (isSelected) {
-                                            onPick(selectedReminders - minutes)
-                                        } else {
-                                            onPick(selectedReminders + minutes)
-                                        }
-                                    },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = Color.Black,
-                                        uncheckedColor = Color.Black,
-                                        checkmarkColor = Color.White
-                                    )
-                                )
+                    items(predefinedOptions) { (label, minutes) ->
+                        val isSelected = selectedReminders.contains(minutes!!)
+                        ReminderToggleRow(
+                            label = label,
+                            isSelected = isSelected,
+                            onToggle = {
+                                if (isSelected) onPick(selectedReminders - minutes)
+                                else onPick(selectedReminders + minutes)
                             }
-                        }
+                        )
                         HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
                     }
 
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onCustomClick() }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TextMMD(
-                                "Custom...",
-                                fontSize = 18.sp,
-                                color = Color.Gray
-                            )
+                    if (customSelections.isNotEmpty()) {
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TextMMD("Custom Reminders", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                         }
+                        items(customSelections) { minutes ->
+                            ReminderToggleRow(
+                                label = formatMinutes(minutes),
+                                isSelected = true,
+                                onToggle = { onPick(selectedReminders - minutes) }
+                            )
+                            HorizontalDividerMMD(thickness = 0.5.dp, color = Color.LightGray)
+                        }
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        ButtonMMD(
+                            onClick = onCustomClick,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(12.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextMMD("Add Custom Reminder", fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
                 if (isScrollable) {
@@ -844,12 +806,44 @@ private fun ReminderPickerOverlay(
 }
 
 @Composable
+private fun ReminderToggleRow(
+    label: String,
+    isSelected: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        TextMMD(
+            label,
+            fontSize = 16.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
+        CheckboxMMD(
+            checked = isSelected,
+            onCheckedChange = { onToggle() },
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
 private fun CustomReminderPickerOverlay(
     onPick: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var amount by remember { mutableIntStateOf(10) }
+    var amountStr by remember { mutableStateOf(TextFieldValue("010", TextRange(0))) }
     var unit by remember { mutableStateOf("minutes") }
+    val units = listOf("minutes", "hours", "days", "weeks")
+    
+    val focusRequester = remember { FocusRequester() }
+    var isFocused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -874,6 +868,7 @@ private fun CustomReminderPickerOverlay(
                 )
                 ButtonMMD(
                     onClick = {
+                        val amount = amountStr.text.toIntOrNull() ?: 0
                         val minutes = when (unit) {
                             "minutes" -> amount
                             "hours" -> amount * 60
@@ -893,39 +888,92 @@ private fun CustomReminderPickerOverlay(
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                TextMMD("Remind me", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
+                
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .border(1.dp, Color.Black, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    PickerColumn(
-                        modifier = Modifier.width(100.dp),
-                        label = amount.toString(),
-                        onUp = { if (amount < 999) amount++ },
-                        onDown = { if (amount > 1) amount-- },
-                        prevLabels = listOf((amount + 2).toString(), (amount + 1).toString()),
-                        nextLabels = listOf((amount - 1).toString(), (amount - 2).toString()).filter { it.toInt() > 0 }
-                    )
+                    // Numeric Input (3 digits)
+                    Box(modifier = Modifier.clickable { 
+                        amountStr = amountStr.copy(selection = TextRange(0))
+                        focusRequester.requestFocus() 
+                    }) {
+                        BasicTextField(
+                            value = amountStr,
+                            onValueChange = { newValue ->
+                                val oldStr = amountStr.text
+                                val newStr = newValue.text
+                                val newCursor = newValue.selection.start
 
-                    val units = listOf("minutes", "hours", "days", "weeks")
-                    val unitIndex = units.indexOf(unit)
-                    
-                    PickerColumn(
-                        modifier = Modifier.width(140.dp),
-                        label = unit,
-                        onUp = { unit = units[(unitIndex + 1) % units.size] },
-                        onDown = { unit = units[(unitIndex - 1 + units.size) % units.size] },
-                        prevLabels = listOf(units[(unitIndex + 2) % units.size], units[(unitIndex + 1) % units.size]),
-                        nextLabels = listOf(units[(unitIndex - 1 + units.size) % units.size], units[(unitIndex - 2 + units.size) % units.size])
-                    )
+                                if (newStr.length > oldStr.length) {
+                                    val addedDigit = newStr.getOrNull(newCursor - 1)
+                                    if (addedDigit != null && addedDigit.isDigit()) {
+                                        val pos = newCursor - 1
+                                        if (pos < 3) {
+                                            val updatedText = oldStr.substring(0, pos) + addedDigit + oldStr.substring(pos + 1)
+                                            amountStr = TextFieldValue(updatedText, TextRange((pos + 1).coerceAtMost(3)))
+                                            if (pos == 2) focusManager.clearFocus()
+                                        }
+                                    }
+                                } else if (newStr.length < oldStr.length) {
+                                    amountStr = newValue.copy(text = oldStr)
+                                } else {
+                                    amountStr = newValue
+                                }
+                            },
+                            modifier = Modifier
+                                .size(1.dp)
+                                .alpha(0f)
+                                .focusRequester(focusRequester)
+                                .onFocusChanged { isFocused = it.isFocused }
+                                .onKeyEvent {
+                                    if (it.key == Key.Backspace) {
+                                        val pos = amountStr.selection.start
+                                        if (pos > 0) {
+                                            amountStr = amountStr.copy(selection = TextRange(pos - 1))
+                                        }
+                                        true
+                                    } else false
+                                },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            cursorBrush = SolidColor(Color.Transparent)
+                        )
+
+                        Row {
+                            val cursor = if (isFocused) amountStr.selection.start else -1
+                            DigitBox(amountStr.text.getOrNull(0)?.toString() ?: "0", cursor == 0)
+                            DigitBox(amountStr.text.getOrNull(1)?.toString() ?: "0", cursor == 1)
+                            DigitBox(amountStr.text.getOrNull(2)?.toString() ?: "0", cursor == 2)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    // Unit Selection
+                    Box(
+                        modifier = Modifier
+                            .border(1.dp, Color.Black, RoundedCornerShape(4.dp))
+                            .clickable { 
+                                val nextIndex = (units.indexOf(unit) + 1) % units.size
+                                unit = units[nextIndex]
+                            }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        TextMMD(unit, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
                 
-                Spacer(modifier = Modifier.height(32.dp))
-                TextMMD("before the event", fontSize = 16.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                TextMMD("before the event", fontSize = 14.sp, color = Color.Gray)
             }
         }
     }
@@ -1034,57 +1082,8 @@ private fun formatMinutes(minutes: Int): String {
 
 
 @Composable
-fun HeaderTab(
+fun DateTimeRow(
     label: String,
-    time: LocalTime,
-    date: LocalDate,
-    isSelected: Boolean,
-    isAllDay: Boolean,
-    useAmericanDateFormat: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .clickable { onClick() },
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        val context = LocalContext.current
-        val is24Hour = DateFormat.is24HourFormat(context)
-        val timePattern = if (is24Hour) "HH:mm" else "h:mm a"
-        val datePattern = if (useAmericanDateFormat) "EEE MMM d" else "EEE d MMM"
-
-        TextMMD(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.Black else Color.Gray)
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.height(48.dp)
-        ) {
-            if (!isAllDay) {
-                TextMMD(
-                    text = time.format(DateTimeFormatter.ofPattern(timePattern, Locale.US)).lowercase(),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) Color.Black else Color.Gray
-                )
-            }
-            TextMMD(
-                text = if (date == LocalDate.now()) "Today" else date.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)),
-                fontSize = if (isAllDay) 18.sp else 10.sp,
-                fontWeight = if (isAllDay) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) Color.Black else Color.Gray
-            )
-        }
-        if (isSelected) {
-            Box(modifier = Modifier.width(60.dp).height(2.dp).background(Color.Black))
-        } else {
-            Spacer(modifier = Modifier.height(2.dp))
-        }
-    }
-}
-
-@Composable
-fun EventPicker(
     date: LocalDate,
     time: LocalTime,
     isAllDay: Boolean,
@@ -1092,179 +1091,289 @@ fun EventPicker(
     onDateChange: (LocalDate) -> Unit,
     onTimeChange: (LocalTime) -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+    val context = LocalContext.current
+    val is24Hour = remember { DateFormat.is24HourFormat(context) }
+
+    val dateValue = remember(date, useAmericanDateFormat) {
+        val d = String.format(Locale.US, "%02d", date.dayOfMonth)
+        val m = String.format(Locale.US, "%02d", date.monthValue)
+        val y = String.format(Locale.US, "%02d", date.year % 100)
+        if (useAmericanDateFormat) m + d + y else d + m + y
+    }
+    var localDateStr by remember(dateValue) { mutableStateOf(TextFieldValue(dateValue, TextRange(0))) }
+
+    val timeValue = remember(time) {
+        val h = String.format(Locale.US, "%02d", time.hour)
+        val m = String.format(Locale.US, "%02d", time.minute)
+        h + m
+    }
+    var localTimeStr by remember(timeValue) { mutableStateOf(TextFieldValue(timeValue, TextRange(0))) }
+
+    val dateFocusRequester = remember { FocusRequester() }
+    val timeFocusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    var isDateFocused by remember { mutableStateOf(false) }
+    var isTimeFocused by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        val datePattern = if (useAmericanDateFormat) "EEE MMM d" else "EEE d MMM"
-        PickerColumn(
-            modifier = Modifier.weight(5f),
-            label = if (date == LocalDate.now()) "Today" else date.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)),
-            onUp = { onDateChange(date.minusDays(1)) },
-            onDown = { onDateChange(date.plusDays(1)) },
-            prevLabels = listOf(
-                date.minusDays(2).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)) },
-                date.minusDays(1).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)) }
-            ),
-            nextLabels = listOf(
-                date.plusDays(1).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)) },
-                date.plusDays(2).let { if (it == LocalDate.now()) "Today" else it.format(DateTimeFormatter.ofPattern(datePattern, Locale.US)) }
-            ),
-            isDate = true
+        TextMMD(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Gray,
+            modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
         )
 
-        if (!isAllDay) {
-            val context = LocalContext.current
-            val is24Hour = DateFormat.is24HourFormat(context)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Color.Black, RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // DATE SECTION
+            Box(
+                modifier = Modifier.weight(1f)
+            ) {
+                BasicTextField(
+                    value = localDateStr,
+                    onValueChange = { newValue ->
+                        val oldStr = localDateStr.text
+                        val newStr = newValue.text
+                        val newCursor = newValue.selection.start
 
-            if (is24Hour) {
-                PickerColumn(
-                    modifier = Modifier.weight(3f),
-                    label = String.format(Locale.US, "%02d", time.hour),
-                    onUp = { onTimeChange(time.minusHours(1)) },
-                    onDown = { onTimeChange(time.plusHours(1)) },
-                    prevLabels = listOf(
-                        String.format(Locale.US, "%02d", time.minusHours(2).hour),
-                        String.format(Locale.US, "%02d", time.minusHours(1).hour)
-                    ),
-                    nextLabels = listOf(
-                        String.format(Locale.US, "%02d", time.plusHours(1).hour),
-                        String.format(Locale.US, "%02d", time.plusHours(2).hour)
-                    )
+                        if (newStr.length > oldStr.length) {
+                            val addedDigit = newStr.getOrNull(newCursor - 1)
+                            if (addedDigit != null && addedDigit.isDigit()) {
+                                val pos = newCursor - 1
+                                if (pos < 6) {
+                                    val isValid = when (pos) {
+                                        0 -> if (useAmericanDateFormat) addedDigit <= '1' else addedDigit <= '3'
+                                        2 -> if (useAmericanDateFormat) addedDigit <= '3' else addedDigit <= '1'
+                                        else -> true
+                                    }
+                                    if (isValid) {
+                                        val updatedText = oldStr.substring(0, pos) + addedDigit + oldStr.substring(pos + 1)
+                                        if (pos == 5) {
+                                            localDateStr = TextFieldValue(updatedText, TextRange(6))
+                                            try {
+                                                val p1 = updatedText.substring(0, 2).toInt()
+                                                val p2 = updatedText.substring(2, 4).toInt()
+                                                val p3 = 2000 + updatedText.substring(4, 6).toInt()
+                                                val newDate = if (useAmericanDateFormat) {
+                                                    LocalDate.of(p3, p1.coerceIn(1, 12), p2.coerceIn(1, 31))
+                                                } else {
+                                                    LocalDate.of(p3, p2.coerceIn(1, 12), p1.coerceIn(1, 31))
+                                                }
+                                                onDateChange(newDate)
+                                            } catch (e: Exception) {}
+                                            if (!isAllDay) {
+                                                localTimeStr = localTimeStr.copy(selection = TextRange(0))
+                                                timeFocusRequester.requestFocus()
+                                            } else {
+                                                focusManager.clearFocus()
+                                            }
+                                        } else {
+                                            localDateStr = TextFieldValue(updatedText, TextRange(pos + 1))
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (newStr.length < oldStr.length) {
+                            localDateStr = newValue.copy(text = oldStr)
+                        } else {
+                            localDateStr = newValue
+                        }
+                    },
+                    modifier = Modifier
+                        .size(1.dp)
+                        .alpha(0f)
+                        .focusRequester(dateFocusRequester)
+                        .onFocusChanged { isDateFocused = it.isFocused }
+                        .onKeyEvent {
+                            if (it.key == Key.Backspace) {
+                                val pos = localDateStr.selection.start
+                                if (pos > 0) {
+                                    localDateStr = localDateStr.copy(selection = TextRange(pos - 1))
+                                }
+                                true
+                            } else false
+                        },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = if (isAllDay) ImeAction.Done else ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { if (!isAllDay) timeFocusRequester.requestFocus() }, onDone = { focusManager.clearFocus() }),
+                    cursorBrush = SolidColor(Color.Transparent)
                 )
-            } else {
-                val hourDisplay = if (time.hour == 0 || time.hour == 12) 12 else time.hour % 12
-                val amPm = if (time.hour < 12) "AM" else "PM"
 
-                PickerColumn(
-                    modifier = Modifier.weight(3f),
-                    label = String.format(Locale.US, "%02d", hourDisplay),
-                    subLabel = amPm,
-                    onUp = { onTimeChange(time.minusHours(1)) },
-                    onDown = { onTimeChange(time.plusHours(1)) },
-                    prevLabels = listOf(
-                        String.format(Locale.US, "%02d", if (time.minusHours(2).hour == 0 || time.minusHours(2).hour == 12) 12 else time.minusHours(2).hour % 12),
-                        String.format(Locale.US, "%02d", if (time.minusHours(1).hour == 0 || time.minusHours(1).hour == 12) 12 else time.minusHours(1).hour % 12)
-                    ),
-                    nextLabels = listOf(
-                        String.format(Locale.US, "%02d", if (time.plusHours(1).hour == 0 || time.plusHours(1).hour == 12) 12 else time.plusHours(1).hour % 12),
-                        String.format(Locale.US, "%02d", if (time.plusHours(2).hour == 0 || time.plusHours(2).hour == 12) 12 else time.plusHours(2).hour % 12)
-                    )
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val currentText = localDateStr.text.padEnd(6, ' ')
+                    val cursor = if (isDateFocused) localDateStr.selection.start else -1
+
+                    if (useAmericanDateFormat) {
+                        DateSegment(currentText.substring(0, 2), cursor, 0, onClick = {
+                            localDateStr = localDateStr.copy(selection = TextRange(0))
+                            dateFocusRequester.requestFocus()
+                        })
+                        TextMMD("/", modifier = Modifier.padding(horizontal = 1.dp))
+                        DateSegment(currentText.substring(2, 4), cursor, 2, onClick = {
+                            localDateStr = localDateStr.copy(selection = TextRange(2))
+                            dateFocusRequester.requestFocus()
+                        })
+                    } else {
+                        DateSegment(currentText.substring(0, 2), cursor, 0, onClick = {
+                            localDateStr = localDateStr.copy(selection = TextRange(0))
+                            dateFocusRequester.requestFocus()
+                        })
+                        TextMMD("/", modifier = Modifier.padding(horizontal = 1.dp))
+                        DateSegment(currentText.substring(2, 4), cursor, 2, onClick = {
+                            localDateStr = localDateStr.copy(selection = TextRange(2))
+                            dateFocusRequester.requestFocus()
+                        })
+                    }
+                    TextMMD("/", modifier = Modifier.padding(horizontal = 1.dp))
+                    DateSegment(currentText.substring(4, 6), cursor, 4, onClick = {
+                        localDateStr = localDateStr.copy(selection = TextRange(4))
+                        dateFocusRequester.requestFocus()
+                    })
+                }
             }
 
-            PickerColumn(
-                modifier = Modifier.weight(2f),
-                label = String.format(Locale.US, "%02d", time.minute),
-                onUp = { onTimeChange(time.minusMinutes(15)) },
-                onDown = { onTimeChange(time.plusMinutes(15)) },
-                prevLabels = listOf(
-                    String.format(Locale.US, "%02d", time.minusMinutes(30).minute),
-                    String.format(Locale.US, "%02d", time.minusMinutes(15).minute)
-                ),
-                nextLabels = listOf(
-                    String.format(Locale.US, "%02d", time.plusMinutes(15).minute),
-                    String.format(Locale.US, "%02d", time.plusMinutes(30).minute)
-                )
-            )
+            if (!isAllDay) {
+                Spacer(modifier = Modifier.width(8.dp))
+                // TIME SECTION
+                Box {
+                    BasicTextField(
+                        value = localTimeStr,
+                        onValueChange = { newValue ->
+                            val oldStr = localTimeStr.text
+                            val newStr = newValue.text
+                            val newCursor = newValue.selection.start
+
+                            if (newStr.length > oldStr.length) {
+                                val addedDigit = newStr.getOrNull(newCursor - 1)
+                                if (addedDigit != null && addedDigit.isDigit()) {
+                                    val pos = newCursor - 1
+                                    if (pos < 4) {
+                                        val isValid = when (pos) {
+                                            0 -> if (is24Hour) addedDigit <= '2' else addedDigit <= '1'
+                                            2 -> addedDigit <= '5'
+                                            else -> true
+                                        }
+                                        if (isValid) {
+                                            val updatedText = oldStr.substring(0, pos) + addedDigit + oldStr.substring(pos + 1)
+                                            if (pos == 3) {
+                                                localTimeStr = TextFieldValue(updatedText, TextRange(4))
+                                                try {
+                                                    val h24 = updatedText.substring(0, 2).toInt().coerceIn(0, 23)
+                                                    val m = updatedText.substring(2, 4).toInt().coerceIn(0, 59)
+                                                    onTimeChange(LocalTime.of(h24, m))
+                                                } catch (e: Exception) {}
+                                                focusManager.clearFocus()
+                                            } else {
+                                                localTimeStr = TextFieldValue(updatedText, TextRange(pos + 1))
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (newStr.length < oldStr.length) {
+                                localTimeStr = newValue.copy(text = oldStr)
+                            } else {
+                                localTimeStr = newValue
+                            }
+                        },
+                        modifier = Modifier
+                            .size(1.dp)
+                            .alpha(0f)
+                            .focusRequester(timeFocusRequester)
+                            .onFocusChanged { isTimeFocused = it.isFocused }
+                            .onKeyEvent {
+                                if (it.key == Key.Backspace) {
+                                    val pos = localTimeStr.selection.start
+                                    if (pos > 0) {
+                                        localTimeStr = localTimeStr.copy(selection = TextRange(pos - 1))
+                                    } else {
+                                        localDateStr = localDateStr.copy(selection = TextRange(5))
+                                        dateFocusRequester.requestFocus()
+                                    }
+                                    true
+                                } else false
+                            },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                        cursorBrush = SolidColor(Color.Transparent)
+                    )
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val displayHH = if (is24Hour) {
+                            localTimeStr.text.substring(0, 2)
+                        } else {
+                            val h24 = localTimeStr.text.substring(0, 2).toIntOrNull() ?: time.hour
+                            val h12 = if (h24 % 12 == 0) 12 else h24 % 12
+                            String.format(Locale.US, "%02d", h12)
+                        }
+                        val currentText = displayHH + localTimeStr.text.substring(2, 4)
+                        val cursor = if (isTimeFocused) localTimeStr.selection.start else -1
+                        
+                        DateSegment(currentText.substring(0, 2), cursor, 0, onClick = {
+                            localTimeStr = localTimeStr.copy(selection = TextRange(0))
+                            timeFocusRequester.requestFocus()
+                        })
+                        TextMMD(":", modifier = Modifier.padding(horizontal = 1.dp))
+                        DateSegment(currentText.substring(2, 4), cursor, 2, onClick = {
+                            localTimeStr = localTimeStr.copy(selection = TextRange(2))
+                            timeFocusRequester.requestFocus()
+                        })
+
+                        if (!is24Hour) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            val isPm = time.hour >= 12
+                            Box(
+                                modifier = Modifier
+                                    .border(1.dp, Color.Black, RoundedCornerShape(4.dp))
+                                    .clickable {
+                                        val newHour = if (isPm) time.hour - 12 else time.hour + 12
+                                        onTimeChange(time.withHour(newHour))
+                                    }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                TextMMD(if (isPm) "PM" else "AM", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-fun PickerColumn(
-    modifier: Modifier = Modifier,
-    label: String,
-    subLabel: String? = null,
-    onUp: () -> Unit,
-    onDown: () -> Unit,
-    prevLabels: List<String>,
-    nextLabels: List<String>,
-    isDate: Boolean = false
-) {
-    val currentOnUp by rememberUpdatedState(onUp)
-    val currentOnDown by rememberUpdatedState(onDown)
-    var hasTriggeredForGesture by remember { mutableStateOf(false) }
-    var accumulatedDrag by remember { mutableStateOf(0f) }
-
-    Column(
-        modifier = modifier
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragStart = {
-                        hasTriggeredForGesture = false
-                        accumulatedDrag = 0f
-                    },
-                    onDragEnd = {
-                        hasTriggeredForGesture = false
-                        accumulatedDrag = 0f
-                    },
-                    onDragCancel = {
-                        hasTriggeredForGesture = false
-                        accumulatedDrag = 0f
-                    },
-                    onVerticalDrag = { change, dragAmount ->
-                        if (!hasTriggeredForGesture) {
-                            accumulatedDrag += dragAmount
-                            if (accumulatedDrag > 50f) { // Swipe Down -> Pulls previous items into view
-                                currentOnUp()
-                                hasTriggeredForGesture = true
-                            } else if (accumulatedDrag < -50f) { // Swipe Up -> Pulls next items into view
-                                currentOnDown()
-                                hasTriggeredForGesture = true
-                            }
-                        }
-                        change.consume()
-                    }
-                )
-            },
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        IconButton(onClick = onUp, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.ArrowDropUp, contentDescription = "Up", modifier = Modifier.size(48.dp))
-        }
-
-        prevLabels.forEach {
-            TextMMD(it, fontSize = 12.sp, color = Color.Black)
-            Spacer(modifier = Modifier.height(2.dp))
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .border(1.dp, Color.Black, RoundedCornerShape(8.dp))
-                .padding(vertical = 6.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                TextMMD(
-                    text = label,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                if (subLabel != null) {
-                    TextMMD(
-                        text = subLabel,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 2.dp, bottom = 2.dp)
-                    )
-                }
-            }
-        }
-
-        nextLabels.forEach {
-            Spacer(modifier = Modifier.height(2.dp))
-            TextMMD(it, fontSize = 12.sp, color = Color.Black)
-        }
-
-        IconButton(onClick = onDown, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.ArrowDropDown, contentDescription = "Down", modifier = Modifier.size(48.dp))
-        }
+fun DateSegment(value: String, cursor: Int, offset: Int, onClick: () -> Unit) {
+    Row(modifier = Modifier.clickable { onClick() }) {
+        DigitBox(value.getOrNull(0)?.toString() ?: "", cursor == offset)
+        DigitBox(value.getOrNull(1)?.toString() ?: "", cursor == offset + 1)
     }
 }
+
+@Composable
+fun DigitBox(char: String, isHighlighted: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(width = 16.dp, height = 26.dp)
+            .background(if (isHighlighted) Color.Black else Color.Transparent, RoundedCornerShape(2.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        TextMMD(
+            text = char.ifEmpty { "0" },
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (isHighlighted) Color.White else Color.Black
+        )
+    }
+}
+
 
 @Composable
 fun CompactOptionItem(
