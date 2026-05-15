@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
             KompaktCalendarTheme {
                 val calendarViewModel: CalendarViewModel = viewModel()
                 val onboardingCompleted by calendarViewModel.onboardingCompleted.collectAsState()
+                val startDestination by calendarViewModel.startDestination.collectAsState()
 
                 if (!onboardingCompleted) {
                     OnboardingScreen(
@@ -46,7 +47,7 @@ class MainActivity : ComponentActivity() {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         NavHost(
                             navController = navController,
-                            startDestination = "calendar",
+                            startDestination = startDestination,
                             modifier = Modifier.padding(innerPadding),
                             enterTransition = { EnterTransition.None },
                             exitTransition = { ExitTransition.None },

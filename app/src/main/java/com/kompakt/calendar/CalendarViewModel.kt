@@ -78,8 +78,34 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     fun updateDraftTitle(v: String) { draftTitle.value = v }
     fun updateDraftStartDate(v: LocalDate) { draftStartDate.value = v }
     fun updateDraftEndDate(v: LocalDate) { draftEndDate.value = v }
-    fun updateDraftStartTime(v: java.time.LocalTime) { draftStartTime.value = v }
-    fun updateDraftEndTime(v: java.time.LocalTime) { draftEndTime.value = v }
+    fun updateDraftStartTime(v: java.time.LocalTime) {
+        val oldStart = draftStartTime.value
+        val oldEnd = draftEndTime.value
+        val duration = java.time.Duration.between(oldStart, oldEnd)
+        
+        draftStartTime.value = v
+        val newEnd = v.plus(duration)
+        draftEndTime.value = newEnd
+        
+        // Adjust end date if it wrapped around midnight
+        if (newEnd.isBefore(v) && !oldEnd.isBefore(oldStart)) {
+            draftEndDate.value = draftEndDate.value.plusDays(1)
+        } else if (v.isBefore(oldStart) && oldEnd.isBefore(oldStart) && !newEnd.isBefore(v)) {
+             draftEndDate.value = draftEndDate.value.minusDays(1)
+        }
+    }
+
+    fun updateDraftEndTime(v: java.time.LocalTime) {
+        draftEndTime.value = v
+        val start = draftStartTime.value
+        if (v.isBefore(start) || v == start) {
+            draftStartTime.value = v.minusHours(1)
+            // If pushing back across midnight
+            if (v.minusHours(1).isAfter(v)) {
+                draftStartDate.value = draftStartDate.value.minusDays(1)
+            }
+        }
+    }
     fun updateDraftIsAllDay(v: Boolean) { draftIsAllDay.value = v }
     fun updateDraftLocation(v: String) { draftLocation.value = v }
     fun updateDraftCalendarId(v: Long?) { draftCalendarId.value = v }
@@ -147,6 +173,9 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
 
     val useAmericanDateFormat: StateFlow<Boolean> = prefs.useAmericanDateFormat
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val startDestination: StateFlow<String> = prefs.startDestination
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "calendar")
 
     init {
         viewModelScope.launch {
@@ -216,19 +245,19 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         _agendaPage.value = getPageForCurrentTime()
     }
 
-    fun beginNewEvent() {
+    fun beginNewEvent(date: LocalDate? = null, time: java.time.LocalTime? = null) {
         _editingEventId.value = null
         _editingInstanceTime.value = null
         _eventDraft.value = null
         _eventNote.value = ""
 
         draftTitle.value = ""
-        val selectedDay = _selectedDate.value
+        val selectedDay = date ?: _selectedDate.value
         draftStartDate.value = selectedDay
         draftEndDate.value = selectedDay
-        val time = java.time.LocalTime.now().withSecond(0).withNano(0).withMinute(0).plusHours(1)
-        draftStartTime.value = time
-        draftEndTime.value = time.plusHours(1)
+        val start = time ?: java.time.LocalTime.now().withSecond(0).withNano(0).withMinute(0).plusHours(1)
+        draftStartTime.value = start
+        draftEndTime.value = start.plusHours(1)
         draftIsAllDay.value = false
         draftLocation.value = ""
         draftCalendarId.value = null
@@ -296,6 +325,34 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         draftRrule.value = baseRrule
         draftRruleUntil.value = untilDate
         draftRruleDays.value = selectedDays
+    }
+
+    suspend fun moveEvent(event: CalendarEvent, newStart: java.time.LocalDateTime): Boolean {
+        val duration = java.time.Duration.between(event.start, event.end)
+        val newEnd = newStart.plus(duration)
+        
+        val ne = CalendarRepository.NewEvent(
+            calendarId = event.calendarId,
+            title = event.title,
+            description = event.description,
+            location = event.location,
+            start = newStart,
+            end = newEnd,
+            allDay = event.allDay,
+            reminders = event.reminders,
+            rrule = event.rrule
+        )
+        
+        val ok = repo.updateEvent(event.id, ne)
+        if (ok) {
+            NotificationScheduler.cancelEventNotifications(getApplication(), event.id)
+            val startMs = ne.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val endMs = ne.end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            NotificationScheduler.scheduleEventNotifications(
+                getApplication(), event.id, ne.title, startMs, endMs, event.reminders
+            )
+        }
+        return ok
     }
 
     suspend fun saveEvent(draft: EventDraft, reminders: List<Int>): Boolean {
@@ -408,6 +465,10 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun setUseAmericanDateFormat(use: Boolean) {
         prefs.saveUseAmericanDateFormat(use)
+    }
+
+    suspend fun setStartDestination(destination: String) {
+        prefs.saveStartDestination(destination)
     }
 
     private fun getPageForCurrentTime(): Int {

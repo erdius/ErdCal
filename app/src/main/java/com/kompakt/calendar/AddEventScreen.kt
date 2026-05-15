@@ -300,14 +300,8 @@ fun AddEventScreen(
                             onTimeChange = {
                                 if (isPickingFrom) {
                                     viewModel.updateDraftStartTime(it)
-                                    if (startDate == endDate && (endTime.isBefore(it) || endTime == it)) {
-                                        viewModel.updateDraftEndTime(it.plusHours(1))
-                                    }
                                 } else {
                                     viewModel.updateDraftEndTime(it)
-                                    if (startDate == endDate && it.isBefore(startTime)) {
-                                        viewModel.updateDraftStartTime(it.minusHours(1))
-                                    }
                                 }
                             }
                         )

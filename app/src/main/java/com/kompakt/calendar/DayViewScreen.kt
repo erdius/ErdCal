@@ -5,7 +5,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -59,6 +62,8 @@ fun DayViewScreen(
 
     var eventColumnOffset by remember { mutableIntStateOf(0) }
     LaunchedEffect(selectedDate) { eventColumnOffset = 0 }
+
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { viewModel.refreshPermission() }
 
@@ -189,6 +194,16 @@ fun DayViewScreen(
                                 onEventClick = { ev ->
                                     val time = ev.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                                     navController.navigate("event_detail/${ev.id}?instanceTime=$time")
+                                },
+                                onEventMoved = { ev, newTime ->
+                                    val newStart = selectedDate.atTime(newTime)
+                                    scope.launch {
+                                        viewModel.moveEvent(ev, newStart)
+                                    }
+                                },
+                                onLongPress = { time ->
+                                    viewModel.beginNewEvent(date = selectedDate, time = time)
+                                    navController.navigate("add_event?fromCalendar=false")
                                 }
                             )
                         }
@@ -287,7 +302,9 @@ fun TimeGridOverlay(
     events: List<CalendarEvent>,
     columnOffset: Int,
     onColumnOffsetChange: (Int) -> Unit,
-    onEventClick: (CalendarEvent) -> Unit
+    onEventClick: (CalendarEvent) -> Unit,
+    onEventMoved: (CalendarEvent, LocalTime) -> Unit,
+    onLongPress: (LocalTime) -> Unit
 ) {
     if (hours.isEmpty()) return
     val startHour = hours.first()
@@ -339,6 +356,16 @@ fun TimeGridOverlay(
             .fillMaxSize()
             .padding(start = 56.dp, end = 8.dp)
             .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = { offset ->
+                        val minutes = ((offset.y - 14.dp.toPx()) / slotHeight.toPx()) * 60
+                        val snappedMinutes = ((minutes + 7.5f) / 15).toInt() * 15
+                        val time = rangeStart.plusMinutes(snappedMinutes.toLong())
+                        onLongPress(time)
+                    }
+                )
+            }
+            .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = { isDraggingH = false },
                     onDragCancel = { isDraggingH = false }
@@ -382,18 +409,39 @@ fun TimeGridOverlay(
                 val actualEnd = if (evEnd.isAfter(rangeEnd)) rangeEnd else evEnd
 
                 val minutesFromStart = ChronoUnit.MINUTES.between(rangeStart, actualStart).coerceAtLeast(0)
-                val topOffset = 14.dp + slotHeight * (minutesFromStart / 60f)
+                val topOffsetInitial = 14.dp + slotHeight * (minutesFromStart / 60f)
                 val durationMinutes = ChronoUnit.MINUTES.between(actualStart, actualEnd)
                 val height = slotHeight * (durationMinutes / 60f)
+
+                var dragOffset by remember { mutableStateOf(0f) }
 
                 Box(
                     modifier = Modifier
                         .width(itemWidth)
                         .height(height)
-                        .offset(x = leftOffset, y = topOffset)
+                        .offset(x = leftOffset, y = topOffsetInitial + dragOffset.dp)
                         .padding(1.dp)
                         .background(Color.White, RoundedCornerShape(4.dp))
                         .border(1.dp, Color.Black, RoundedCornerShape(4.dp))
+                        .pointerInput(ev.id) {
+                            detectDragGestures(
+                                onDragStart = { dragOffset = 0f },
+                                onDragEnd = {
+                                    val minutesDragged = (dragOffset.dp.toPx() / slotHeight.toPx()) * 60
+                                    val totalMinutes = (actualStart.toSecondOfDay() / 60f) + minutesDragged
+                                    val snappedMinutes = ((totalMinutes + 7.5f) / 15).toInt() * 15
+                                    val finalMinutes = snappedMinutes.coerceIn(0, 1439)
+                                    val newTime = LocalTime.of(finalMinutes / 60, finalMinutes % 60)
+                                    onEventMoved(ev, newTime)
+                                    dragOffset = 0f
+                                },
+                                onDragCancel = { dragOffset = 0f },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragOffset += dragAmount.y / density
+                                }
+                            )
+                        }
                         .clickable { onEventClick(ev) }
                         .padding(4.dp)
                 ) {

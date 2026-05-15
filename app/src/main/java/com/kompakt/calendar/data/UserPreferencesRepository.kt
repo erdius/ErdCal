@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -38,6 +39,9 @@ class UserPreferencesRepository(
     val useAmericanDateFormat: Flow<Boolean> = context.dataStore.data
         .map { it[USE_AMERICAN_DATE_FORMAT] ?: false }
 
+    val startDestination: Flow<String> = context.dataStore.data
+        .map { it[START_DESTINATION] ?: "calendar" }
+
     suspend fun saveShowWeekNumbers(value: Boolean) {
         context.dataStore.edit { it[SHOW_WEEK_NUMBERS] = value }
     }
@@ -62,6 +66,10 @@ class UserPreferencesRepository(
         context.dataStore.edit { it[USE_AMERICAN_DATE_FORMAT] = value }
     }
 
+    suspend fun saveStartDestination(value: String) {
+        context.dataStore.edit { it[START_DESTINATION] = value }
+    }
+
     private companion object {
         val SHOW_WEEK_NUMBERS = booleanPreferencesKey("show_week_numbers")
         val START_WEEK_ON_MONDAY = booleanPreferencesKey("start_week_on_monday")
@@ -69,5 +77,6 @@ class UserPreferencesRepository(
         val DEFAULT_REMINDER_MINUTES = intPreferencesKey("default_reminder_minutes")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val USE_AMERICAN_DATE_FORMAT = booleanPreferencesKey("use_american_date_format")
+        val START_DESTINATION = stringPreferencesKey("start_destination")
     }
 }

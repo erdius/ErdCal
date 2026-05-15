@@ -1,8 +1,10 @@
 package com.kompakt.calendar
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -196,6 +198,10 @@ fun CalendarScreen(
                         onDateSelected = { date ->
                             viewModel.onDateSelected(date)
                             navController.navigate("day_view")
+                        },
+                        onDateLongClick = { date ->
+                            viewModel.beginNewEvent(date = date)
+                            navController.navigate("add_event?fromCalendar=true")
                         }
                     )
 
@@ -239,7 +245,8 @@ fun CalendarGrid(
     eventDays: Set<LocalDate>,
     showWeekNumbers: Boolean,
     startDayMonday: Boolean,
-    onDateSelected: (LocalDate) -> Unit
+    onDateSelected: (LocalDate) -> Unit,
+    onDateLongClick: (LocalDate) -> Unit
 ) {
     val firstDayOfMonth = currentMonth.atDay(1)
     val dayOfWeekValue = firstDayOfMonth.dayOfWeek.value // 1 (Mon) to 7 (Sun)
@@ -288,7 +295,8 @@ fun CalendarGrid(
                             isActiveDay = date == today,
                             isCurrentMonth = YearMonth.from(date) == currentMonth,
                             hasEvent = eventDays.contains(date),
-                            onDateSelected = onDateSelected
+                            onDateSelected = onDateSelected,
+                            onDateLongClick = onDateLongClick
                         )
                     }
                 }
@@ -336,13 +344,19 @@ fun DayCell(
     isActiveDay: Boolean,
     isCurrentMonth: Boolean,
     hasEvent: Boolean,
-    onDateSelected: (LocalDate) -> Unit
+    onDateSelected: (LocalDate) -> Unit,
+    onDateLongClick: (LocalDate) -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(60.dp)
-            .clickable { onDateSelected(date) },
+            .pointerInput(date) {
+                detectTapGestures(
+                    onTap = { onDateSelected(date) },
+                    onLongPress = { onDateLongClick(date) }
+                )
+            },
         contentAlignment = Alignment.TopCenter
     ) {
         Column(

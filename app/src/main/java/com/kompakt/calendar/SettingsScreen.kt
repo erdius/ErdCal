@@ -59,6 +59,7 @@ fun SettingsScreen(
     val showWeekNumbers by viewModel.showWeekNumbers.collectAsState()
     val startDayMonday by viewModel.startWeekOnMonday.collectAsState()
     val useAmericanDateFormat by viewModel.useAmericanDateFormat.collectAsState()
+    val startDestination by viewModel.startDestination.collectAsState()
     val calendars by viewModel.calendarsLive.collectAsState()
     val defaultCalendarId by viewModel.defaultCalendarId.collectAsState()
     val defaultReminderMinutes by viewModel.defaultReminderMinutes.collectAsState()
@@ -422,6 +423,40 @@ fun SettingsScreen(
                     DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
 
+                // Launch View section
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item {
+                    TextMMD(
+                        text = "Startup",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                item {
+                    LaunchViewRow(
+                        title = "Month view",
+                        isSelected = startDestination == "calendar",
+                        onClick = { scope.launch { viewModel.setStartDestination("calendar") } }
+                    )
+                }
+                item {
+                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                }
+                item {
+                    LaunchViewRow(
+                        title = "Agenda view",
+                        isSelected = startDestination == "agenda",
+                        onClick = { scope.launch { viewModel.setStartDestination("agenda") } }
+                    )
+                }
+
+                item {
+                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                }
+
                 // Default Calendar section
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
@@ -663,6 +698,32 @@ private fun ReminderPickerOverlay(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LaunchViewRow(
+    title: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        TextMMD(
+            text = title,
+            fontSize = 16.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
+        RadioButtonMMD(
+            selected = isSelected,
+            onClick = onClick
+        )
     }
 }
 
