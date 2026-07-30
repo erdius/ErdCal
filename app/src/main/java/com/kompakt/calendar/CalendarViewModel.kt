@@ -177,6 +177,9 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     val startDestination: StateFlow<String> = prefs.startDestination
         .stateIn(viewModelScope, SharingStarted.Eagerly, "calendar")
 
+    val textScale: StateFlow<Float> = prefs.textScale
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 1.0f)
+
     init {
         viewModelScope.launch {
             _calendarsRefresh.value = repo.getCalendars()
@@ -469,6 +472,10 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun setStartDestination(destination: String) {
         prefs.saveStartDestination(destination)
+    }
+
+    suspend fun setTextScale(scale: Float) {
+        prefs.saveTextScale(scale)
     }
 
     private fun getPageForCurrentTime(): Int {

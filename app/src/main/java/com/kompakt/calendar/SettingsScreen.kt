@@ -60,6 +60,7 @@ fun SettingsScreen(
     val startDayMonday by viewModel.startWeekOnMonday.collectAsState()
     val useAmericanDateFormat by viewModel.useAmericanDateFormat.collectAsState()
     val startDestination by viewModel.startDestination.collectAsState()
+    val textScale by viewModel.textScale.collectAsState()
     val calendars by viewModel.calendarsLive.collectAsState()
     val defaultCalendarId by viewModel.defaultCalendarId.collectAsState()
     val defaultReminderMinutes by viewModel.defaultReminderMinutes.collectAsState()
@@ -416,6 +417,60 @@ fun SettingsScreen(
                         title = "Use American date format",
                         checked = useAmericanDateFormat,
                         onCheckedChange = { scope.launch { viewModel.setUseAmericanDateFormat(it) } }
+                    )
+                }
+
+                item {
+                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                }
+
+                // Text Size section
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item {
+                    TextMMD(
+                        text = "Text Size",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                item {
+                    LaunchViewRow(
+                        title = "Small",
+                        isSelected = textScale == 0.9f,
+                        onClick = { scope.launch { viewModel.setTextScale(0.9f) } }
+                    )
+                }
+                item {
+                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                }
+                item {
+                    LaunchViewRow(
+                        title = "Default",
+                        isSelected = textScale == 1.0f,
+                        onClick = { scope.launch { viewModel.setTextScale(1.0f) } }
+                    )
+                }
+                item {
+                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                }
+                item {
+                    LaunchViewRow(
+                        title = "Large",
+                        isSelected = textScale == 1.15f,
+                        onClick = { scope.launch { viewModel.setTextScale(1.15f) } }
+                    )
+                }
+                item {
+                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                }
+                item {
+                    LaunchViewRow(
+                        title = "Extra Large",
+                        isSelected = textScale == 1.3f,
+                        onClick = { scope.launch { viewModel.setTextScale(1.3f) } }
                     )
                 }
 

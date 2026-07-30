@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -42,6 +43,9 @@ class UserPreferencesRepository(
     val startDestination: Flow<String> = context.dataStore.data
         .map { it[START_DESTINATION] ?: "calendar" }
 
+    val textScale: Flow<Float> = context.dataStore.data
+        .map { it[TEXT_SCALE] ?: 1.0f }
+
     suspend fun saveShowWeekNumbers(value: Boolean) {
         context.dataStore.edit { it[SHOW_WEEK_NUMBERS] = value }
     }
@@ -70,6 +74,10 @@ class UserPreferencesRepository(
         context.dataStore.edit { it[START_DESTINATION] = value }
     }
 
+    suspend fun saveTextScale(value: Float) {
+        context.dataStore.edit { it[TEXT_SCALE] = value }
+    }
+
     private companion object {
         val SHOW_WEEK_NUMBERS = booleanPreferencesKey("show_week_numbers")
         val START_WEEK_ON_MONDAY = booleanPreferencesKey("start_week_on_monday")
@@ -78,5 +86,6 @@ class UserPreferencesRepository(
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val USE_AMERICAN_DATE_FORMAT = booleanPreferencesKey("use_american_date_format")
         val START_DESTINATION = stringPreferencesKey("start_destination")
+        val TEXT_SCALE = floatPreferencesKey("text_scale")
     }
 }

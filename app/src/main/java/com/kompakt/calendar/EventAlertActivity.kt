@@ -24,6 +24,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -71,8 +73,13 @@ class EventAlertActivity : ComponentActivity() {
                 val context = androidx.compose.ui.platform.LocalContext.current
                 var event by remember { mutableStateOf<CalendarEvent?>(null) }
                 val useAmericanDateFormat by (application as MyApplication).userPreferencesRepository.useAmericanDateFormat.collectAsState(initial = false)
+                val textScale by (application as MyApplication).userPreferencesRepository.textScale.collectAsState(initial = 1.0f)
+                val density = LocalDensity.current
                 val scope = rememberCoroutineScope()
 
+                CompositionLocalProvider(
+                    LocalDensity provides Density(density = density.density, fontScale = textScale)
+                ) {
                 LaunchedEffect(eventId) {
                     scope.launch {
                         val baseEvent = repo.getEventById(eventId)
@@ -145,6 +152,7 @@ class EventAlertActivity : ComponentActivity() {
                             onDismiss = { showCustomSnoozePicker = false }
                         )
                     }
+                }
                 }
             }
         }

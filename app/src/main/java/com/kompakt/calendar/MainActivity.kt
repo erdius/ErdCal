@@ -10,9 +10,12 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -37,7 +40,12 @@ class MainActivity : ComponentActivity() {
                 val calendarViewModel: CalendarViewModel = viewModel()
                 val onboardingCompleted by calendarViewModel.onboardingCompleted.collectAsState()
                 val startDestination by calendarViewModel.startDestination.collectAsState()
+                val textScale by calendarViewModel.textScale.collectAsState()
+                val density = LocalDensity.current
 
+                CompositionLocalProvider(
+                    LocalDensity provides Density(density = density.density, fontScale = textScale)
+                ) {
                 if (!onboardingCompleted) {
                     OnboardingScreen(
                         onFinished = { calendarViewModel.refreshPermission() }
@@ -136,6 +144,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
                 }
             }
         }
