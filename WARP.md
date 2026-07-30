@@ -6,11 +6,11 @@ Guidance for AI assistants (Warp, Claude, etc.) working in this repository.
 
 ## Project Overview
 
-**KompaktCalendar** is an Android calendar application built with Jetpack Compose, optimised for E-ink displays via the Mudita Mindful Design (MMD) library. It is designed for the **Mudita Kompakt** device but runs on any Android 9+ device.
+**ErdCal** is a personal fork of [KompaktCalendar](https://codeberg.org/davidanderlohr/KompaktCalendar), an Android calendar application built with Jetpack Compose, optimised for E-ink displays via the Mudita Mindful Design (MMD) library. It is designed for the **Mudita Kompakt** device but runs on any Android 9+ device.
 
 The app reads and writes events through the **Android Calendar Provider** (`CalendarContract`). It has no local event database. Calendar sync is handled externally — typically by **DAVx5** for CalDAV accounts.
 
-**Internal package**: `com.example.helloworld` (legacy from the CalmDirectory template — the applicationId is `com.kompaktcalendar`)
+**Internal package**: `com.kompakt.calendar` (legacy from the KompaktCalendar upstream, deliberately left unrenamed — the applicationId is `com.erdman.erdcal`)
 
 ### Tech Stack
 
@@ -21,16 +21,16 @@ The app reads and writes events through the **Android Calendar Provider** (`Cale
 - **Preferences**: Jetpack DataStore (`UserPreferencesRepository`)
 - **Notifications**: `AlarmManager` + `BroadcastReceiver` (own stack, not CalendarContract alerts)
 - **Min SDK**: 28, Target SDK: 35
-- **Build**: Gradle (no wrapper — use system Gradle or Android Studio)
+- **Build**: Gradle, via the wrapper (`./gradlew`)
 
 ---
 
 ## Build Commands
 
 ```bash
-gradle assembleDebug
-gradle assembleRelease
-gradle clean
+./gradlew assembleDebug
+./gradlew assembleRelease
+./gradlew clean
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 

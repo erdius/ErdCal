@@ -272,7 +272,7 @@ fun SettingsScreen(
                             PermissionStatusRow(
                                 title = "DuraSpeed",
                                 isGranted = false,
-                                subtitle = "Ensure KompaktCalendar is toggled ON in DuraSpeed settings",
+                                subtitle = "Ensure ErdCal is toggled ON in DuraSpeed settings",
                                 isWarning = true,
                                 onClick = {
                                     try {
@@ -562,7 +562,7 @@ fun SettingsScreen(
                 item { Spacer(modifier = Modifier.height(8.dp)) }
                 item {
                     TextMMD(
-                        text = "KompaktCalendar",
+                        text = "ErdCal",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 16.dp)

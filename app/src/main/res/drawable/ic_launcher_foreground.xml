@@ -1,67 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original artwork for this fork's launcher icon. A desk-calendar glyph:
+     two binding-ring marks, a card body drawn as four separate solid
+     border strips, a header-divider bar, and a small grid of date marks
+     with the middle one rendered as a circle (today) instead of a square.
+     Every path is a plain non-overlapping solid fillColor rectangle/circle,
+     no strokeColor/strokeWidth and no fillType="evenOdd", since at least
+     one launcher this app targets (Mudita Kompakt) doesn't reliably render
+     those (they render as a solid-filled block instead of a transparent
+     outline). The upstream icon used stroked rounded-rect outlines, which
+     would hit that exact issue. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="968"
-    android:viewportHeight="968">
-    <group
-        android:scaleX="0.67"
-        android:scaleY="0.67"
-        android:translateX="159.72"
-        android:translateY="159.72">
+    android:viewportWidth="108"
+    android:viewportHeight="108">
 
-        <!-- Outer rounded frame -->
-        <path
-            android:pathData="M210,16L758,16A194,194 0,0 1,952 210L952,758A194,194 0,0 1,758 952L210,952A194,194 0,0 1,16 758L16,210A194,194 0,0 1,210 16z"
-            android:strokeWidth="32"
-            android:fillColor="#00000000"
-            android:strokeColor="#000000"/>
+    <!-- Binding rings -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M34,20 L41,20 L41,36 L34,36 Z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M67,20 L74,20 L74,36 L67,36 Z" />
 
-        <!-- Calendar body -->
-        <path
-            android:pathData="M272,284L696,284A48,48 0,0 1,744 332L744,676A48,48 0,0 1,696 724L272,724A48,48 0,0 1,224 676L224,332A48,48 0,0 1,272 284z"
-            android:fillColor="#FFFFFF"
-            android:strokeColor="#000000"
-            android:strokeWidth="32"/>
+    <!-- Calendar body outline, as four separate solid border strips -->
+    <path android:fillColor="#000000" android:pathData="M22,30 L86,30 L86,35 L22,35 Z" />
+    <path android:fillColor="#000000" android:pathData="M22,83 L86,83 L86,88 L22,88 Z" />
+    <path android:fillColor="#000000" android:pathData="M22,30 L27,30 L27,88 L22,88 Z" />
+    <path android:fillColor="#000000" android:pathData="M81,30 L86,30 L86,88 L81,88 Z" />
 
-        <!-- Header divider line -->
-        <path
-            android:pathData="M224,394L744,394"
-            android:strokeColor="#000000"
-            android:strokeWidth="32"/>
+    <!-- Header divider -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M27,44 L81,44 L81,48 L27,48 Z" />
 
-        <!-- Row 1 -->
-        <path android:pathData="M326,469A22,22 0,0 1,282 469A22,22 0,0 1,326 469z" android:fillColor="#000000"/>
-        <path android:pathData="M416,469A22,22 0,0 1,372 469A22,22 0,0 1,416 469z" android:fillColor="#000000"/>
-        <path android:pathData="M506,469A22,22 0,0 1,462 469A22,22 0,0 1,506 469z" android:fillColor="#000000"/>
-        <path android:pathData="M596,469A22,22 0,0 1,552 469A22,22 0,0 1,596 469z" android:fillColor="#000000"/>
-        <path android:pathData="M686,469A22,22 0,0 1,642 469A22,22 0,0 1,686 469z" android:fillColor="#000000"/>
-
-        <!-- Row 2 with highlighted "today" in the center -->
-        <path android:pathData="M326,559A22,22 0,0 1,282 559A22,22 0,0 1,326 559z" android:fillColor="#000000"/>
-        <path android:pathData="M416,559A22,22 0,0 1,372 559A22,22 0,0 1,416 559z" android:fillColor="#000000"/>
-        <path
-            android:pathData="M462,521L506,521A16,16 0,0 1,522 537L522,581A16,16 0,0 1,506 597L462,597A16,16 0,0 1,446 581L446,537A16,16 0,0 1,462 521z"
-            android:fillColor="#000000"/>
-        <path android:pathData="M596,559A22,22 0,0 1,552 559A22,22 0,0 1,596 559z" android:fillColor="#000000"/>
-        <path android:pathData="M686,559A22,22 0,0 1,642 559A22,22 0,0 1,686 559z" android:fillColor="#000000"/>
-
-        <!-- Row 3 -->
-        <path android:pathData="M326,649A22,22 0,0 1,282 649A22,22 0,0 1,326 649z" android:fillColor="#000000"/>
-        <path android:pathData="M416,649A22,22 0,0 1,372 649A22,22 0,0 1,416 649z" android:fillColor="#000000"/>
-        <path android:pathData="M506,649A22,22 0,0 1,462 649A22,22 0,0 1,506 649z" android:fillColor="#000000"/>
-        <path android:pathData="M596,649A22,22 0,0 1,552 649A22,22 0,0 1,596 649z" android:fillColor="#000000"/>
-        <path android:pathData="M686,649A22,22 0,0 1,642 649A22,22 0,0 1,686 649z" android:fillColor="#000000"/>
-
-        <!-- Binding tabs at top -->
-        <path
-            android:pathData="M352,234L376,234A20,20 0,0 1,396 254L396,314A20,20 0,0 1,376 334L352,334A20,20 0,0 1,332 314L332,254A20,20 0,0 1,352 234z"
-            android:fillColor="#000000"
-            android:strokeColor="#FFFFFF"
-            android:strokeWidth="32"/>
-        <path
-            android:pathData="M592,234L616,234A20,20 0,0 1,636 254L636,314A20,20 0,0 1,616 334L592,334A20,20 0,0 1,572 314L572,254A20,20 0,0 1,592 234z"
-            android:fillColor="#000000"
-            android:strokeColor="#FFFFFF"
-            android:strokeWidth="32"/>
-    </group>
+    <!-- Date-grid marks; the middle mark is a circle (today) -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M30,54 L38,54 L38,62 L30,62 Z
+                           M66,54 L74,54 L74,62 L66,62 Z
+                           M30,70 L38,70 L38,78 L30,78 Z
+                           M48,70 L56,70 L56,78 L48,78 Z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M56,58 A4,4 0 1,1 47.999,58 A4,4 0 1,1 56,58 Z" />
 </vector>

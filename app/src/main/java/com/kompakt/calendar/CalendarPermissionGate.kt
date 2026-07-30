@@ -89,7 +89,7 @@ fun CalendarPermissionGate(
             )
             Spacer(Modifier.height(12.dp))
             TextMMD(
-                "KompaktCalendar reads events from your device's calendars, including any " +
+                "ErdCal reads events from your device's calendars, including any " +
                         "synced via DAVx5 (CalDAV), Google, or Exchange. Grant calendar " +
                         "access to continue.",
                 fontSize = 14.sp,

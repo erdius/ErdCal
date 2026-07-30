@@ -132,7 +132,7 @@ fun OnboardingScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     TextMMD(
-                        text = if (canFinish) "Start using KompaktCalendar" else "Grant Calendar Access to start",
+                        text = if (canFinish) "Start using ErdCal" else "Grant Calendar Access to start",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -254,7 +254,7 @@ fun OnboardingScreen(
                     item {
                         OnboardingPermissionRow(
                             title = "DuraSpeed",
-                            description = "Whitelisting for KompaktCalendar.",
+                            description = "Whitelisting for ErdCal.",
                             isGranted = false,
                             onClick = {
                             try {

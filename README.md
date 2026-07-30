@@ -1,10 +1,10 @@
-<img align="left" src="logo.svg" width="100" height="100" alt="KompaktCalendar Logo">
+<img align="left" src="logo.svg" width="100" height="100" alt="ErdCal Logo">
 
 <br clear="all" />
 
-# KompaktCalendar
+# ErdCal
 
-**KompaktCalendar** is an Android calendar application built with Jetpack Compose, designed and optimized for E-ink displays using the **Mudita Mindful Design (MMD)** library. It is built specifically for the **Mudita Kompakt** but works on any Android device.
+**ErdCal** is a personal fork of [KompaktCalendar](https://codeberg.org/davidanderlohr/KompaktCalendar), an Android calendar application built with Jetpack Compose, designed and optimized for E-ink displays using the **Mudita Mindful Design (MMD)** library. It is built specifically for the **Mudita Kompakt** but works on any Android device.
 
 Events sync through the standard Android Calendar Provider — no accounts are stored in the app itself. To get your calendars on device, install **DAVx5** (see below).
 
@@ -36,22 +36,22 @@ Events sync through the standard Android Calendar Provider — no accounts are s
 
 ### Install DAVx5 (required for calendar sync)
 
-KompaktCalendar reads and writes events through the Android Calendar Provider. It does **not** include its own sync engine. To sync your CalDAV calendars (Nextcloud, Fastmail, Google, iCloud, etc.) you need **DAVx5**:
+ErdCal reads and writes events through the Android Calendar Provider. It does **not** include its own sync engine. To sync your CalDAV calendars (Nextcloud, Fastmail, Google, iCloud, etc.) you need **DAVx5**:
 
 1. Install [DAVx5](https://www.davx5.com/) from F-Droid or the Play Store.
 2. Add your CalDAV account in DAVx5 and enable the calendars you want to sync.
-3. Open KompaktCalendar — your calendars will appear automatically.
+3. Open ErdCal — your calendars will appear automatically.
 
-DAVx5 handles all sync; KompaktCalendar just reads and writes events.
+DAVx5 handles all sync; ErdCal just reads and writes events.
 
 > If you use Google Calendar natively, you can skip DAVx5 — the Google Calendar sync adapter already populates the Android Calendar Provider.
 
 ### Build
 
-The project has no Gradle wrapper. Build using Android Studio or a local Gradle installation:
-
 ```bash
-gradle assembleDebug
+git clone https://github.com/erdius/ErdCal.git
+cd ErdCal
+./gradlew assembleDebug
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -139,7 +139,7 @@ There is no local database — all event data lives in the Android Calendar Prov
 
 ## Acknowledgements
 
-This project started from **[CalmDirectory](https://github.com/davidraywilson/CalmDirectory)** by [David Ray Wilson](https://github.com/davidraywilson) as a template. The original app structure, Mudita MMD integration patterns, and Compose navigation setup provided a great starting point. The calendar-specific functionality was built on top of that foundation. Thank you!
+ErdCal is a fork of **[KompaktCalendar](https://codeberg.org/davidanderlohr/KompaktCalendar)** by [David Anderlohr](https://codeberg.org/davidanderlohr), which itself started from **[CalmDirectory](https://github.com/davidraywilson/CalmDirectory)** by [David Ray Wilson](https://github.com/davidraywilson) as a template. The original app structure, Mudita MMD integration patterns, and Compose navigation setup provided a great starting point, and KompaktCalendar built the calendar-specific functionality on top of that foundation. Thank you both!
 
 ---
 

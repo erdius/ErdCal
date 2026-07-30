@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "KompaktCalendar"
+rootProject.name = "ErdCal"
 include ':app'
