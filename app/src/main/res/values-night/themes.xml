@@ -2,15 +2,13 @@
 <resources>
     <!-- Base application theme -->
     <style name="Theme.ErdCal" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Primary brand color -->
-        <item name="colorPrimary">@color/purple_200</item>
-        <item name="colorPrimaryContainer">@color/purple_700</item>
+        <item name="colorPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/gray_light</item>
         <item name="colorOnPrimary">@color/black</item>
-        <!-- Secondary brand color -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryContainer">@color/teal_200</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color -->
-        <item name="android:statusBarColor">@color/purple_700</item>
+        <item name="colorSecondary">@color/gray_mid</item>
+        <item name="colorSecondaryContainer">@color/gray_dark</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <!-- Status bar matches the dark theme's black app background -->
+        <item name="android:statusBarColor">@color/black</item>
     </style>
 </resources>
