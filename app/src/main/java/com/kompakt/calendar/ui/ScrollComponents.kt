@@ -33,11 +33,16 @@ fun Modifier.eInkVerticalScroll(
     isScrollable: Boolean
 ): Modifier {
     var isDragging by remember { mutableStateOf(false) }
+    // pointerInput(Unit) installs the gesture-detecting coroutine exactly
+    // once, so a plain captured Boolean would freeze at whatever value it
+    // had on the first composition (before the list has measured any
+    // items). rememberUpdatedState keeps the check reading the latest value.
+    val isScrollableState = rememberUpdatedState(isScrollable)
     return this.pointerInput(Unit) {
         detectVerticalDragGestures(
             onDragEnd = { isDragging = false }
         ) { _, dragAmount ->
-            if (!isDragging && isScrollable) {
+            if (!isDragging && isScrollableState.value) {
                 isDragging = true
                 val direction = if (dragAmount > 0) -1 else 1
                 val newIdx = (state.firstVisibleItemIndex + direction * SCROLL_STEP)
