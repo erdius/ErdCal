@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -22,8 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,12 +40,15 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.kompaktcalendar.BuildConfig
 import com.kompakt.calendar.ui.EInkScrollbar
 import com.kompakt.calendar.ui.common.DashedDivider
 import com.kompakt.calendar.ui.eInkVerticalScroll
 import com.mudita.mmd.components.divider.HorizontalDividerMMD
 import com.mudita.mmd.components.radio_button.RadioButtonMMD
 import com.mudita.mmd.components.switcher.SwitchMMD
+import com.mudita.mmd.components.tabs.PrimaryTabRowMMD
+import com.mudita.mmd.components.tabs.TabMMD
 import com.mudita.mmd.components.text.TextMMD
 import com.mudita.mmd.components.top_app_bar.TopAppBarMMD
 import kotlinx.coroutines.launch
@@ -71,21 +73,10 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var showReminderPicker by remember { mutableStateOf(false) }
 
-    // Collapsed by default so opening Settings shows a short list of section
-    // headers instead of every row at once; tap a header to expand it.
-    var permissionsExpanded by remember { mutableStateOf(false) }
-    var calendarsExpanded by remember { mutableStateOf(false) }
-    var displayExpanded by remember { mutableStateOf(false) }
-    var textSizeExpanded by remember { mutableStateOf(false) }
-    var startupExpanded by remember { mutableStateOf(false) }
-    var defaultCalendarExpanded by remember { mutableStateOf(false) }
-    var defaultReminderExpanded by remember { mutableStateOf(false) }
-    var aboutExpanded by remember { mutableStateOf(false) }
+    // 0 = General, 1 = Display, 2 = Calendars, 3 = About
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabOptions = listOf("General", "Display", "Calendars", "About")
 
-    val listState = rememberLazyListState()
-    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
-    val canScrollBackward by remember { derivedStateOf { listState.canScrollBackward } }
-    val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
     val isDuraSpeedAvailable = remember {
         try {
             context.packageManager.getPackageInfo("com.mediatek.duraspeed", 0)
@@ -153,163 +144,38 @@ fun SettingsScreen(
             )
         }
     ) { paddingValues ->
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .eInkVerticalScroll(listState, scope, isScrollable),
-                userScrollEnabled = false
-            ) {
-
-                // Permissions Status section
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item {
-                    SectionHeader(
-                        title = "System Permissions & Optimization",
-                        expanded = permissionsExpanded,
-                        onToggle = { permissionsExpanded = !permissionsExpanded }
-                    )
-                }
-
-                if (permissionsExpanded) {
-                item {
-                    PermissionStatusRow(
-                        title = "Calendar Access",
-                        isGranted = hasPermission,
-                        onClick = {
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.fromParts("package", context.packageName, null)
-                            }
-                            context.startActivity(intent)
-                        }
-                    )
-                }
-
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                item {
-                    key(resumeToggle) {
-                        val notificationsGranted =
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.POST_NOTIFICATIONS
-                                ) == PackageManager.PERMISSION_GRANTED
-                            } else {
-                                context.getSystemService(NotificationManager::class.java)
-                                    .areNotificationsEnabled()
-                            }
-                        PermissionStatusRow(
-                            title = "Notifications",
-                            isGranted = notificationsGranted,
-                            onClick = {
-                                val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                    }
-                                } else {
-                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                        data = Uri.fromParts("package", context.packageName, null)
-                                    }
-                                }
-                                context.startActivity(intent)
-                            }
-                        )
-                    }
-                }
-
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    item {
-                        key(resumeToggle) {
-                            val alarmManager = context.getSystemService(AlarmManager::class.java)
-                            PermissionStatusRow(
-                                title = "Exact Alarms",
-                                isGranted = alarmManager.canScheduleExactAlarms(),
-                                onClick = {
-                                    val intent =
-                                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                                            data = Uri.fromParts("package", context.packageName, null)
-                                        }
-                                    context.startActivity(intent)
-                                }
+            PrimaryTabRowMMD(selectedTabIndex = selectedTab) {
+                tabOptions.forEachIndexed { index, title ->
+                    TabMMD(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = {
+                            TextMMD(
+                                text = title,
+                                fontSize = 16.sp,
+                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
                             )
-                        }
-                    }
-                    item {
-                        HorizontalDividerMMD(
-                            thickness = 0.5.dp,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
+                        },
+                    )
                 }
+            }
 
-                item {
-                    key(resumeToggle) {
-                        val powerManager = context.getSystemService(PowerManager::class.java)
-                        val isIgnoringBatteryOptimizations =
-                            powerManager.isIgnoringBatteryOptimizations(context.packageName)
+            if (selectedTab == 0) {
+                SettingsTabColumn {
+                    item {
                         PermissionStatusRow(
-                            title = "Battery Optimization",
-                            isGranted = isIgnoringBatteryOptimizations,
-                            subtitle = if (isIgnoringBatteryOptimizations) "Disabled (Recommended)" else "Enabled (May delay reminders)",
-                            isWarning = !isIgnoringBatteryOptimizations,
+                            title = "Calendar Access",
+                            isGranted = hasPermission,
                             onClick = {
-                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                    data = Uri.parse("package:${context.packageName}")
+                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", context.packageName, null)
                                 }
                                 context.startActivity(intent)
-                            }
-                        )
-                    }
-                }
-
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                if (isDuraSpeedAvailable) {
-                    item {
-                        DuraSpeedStatusRow(
-                            confirmed = duraspeedConfirmed,
-                            onConfirmedChange = { scope.launch { viewModel.setDuraspeedConfirmed(it) } },
-                            onOpenDuraSpeed = {
-                                try {
-                                    val intent = context.packageManager.getLaunchIntentForPackage("com.mediatek.duraspeed")
-                                    if (intent != null) {
-                                        context.startActivity(intent)
-                                    } else {
-                                        // Fallback to explicit component
-                                        val explicitIntent = Intent().apply {
-                                            component = ComponentName("com.mediatek.duraspeed", "com.mediatek.duraspeed.DuraSpeedMainActivity")
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        }
-                                        context.startActivity(explicitIntent)
-                                    }
-                                } catch (e: Exception) {
-                                    // If all direct attempts fail, open App Info which often has a link to DuraSpeed
-                                    try {
-                                        val appInfoIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                            data = Uri.fromParts("package", "com.mediatek.duraspeed", null)
-                                        }
-                                        context.startActivity(appInfoIntent)
-                                    } catch (e2: Exception) {
-                                        // Final fallback: open general settings
-                                        context.startActivity(Intent(Settings.ACTION_SETTINGS))
-                                    }
-                                }
                             }
                         )
                     }
@@ -317,340 +183,433 @@ fun SettingsScreen(
                     item {
                         DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
                     }
-                }
 
-                item {
-                    key(resumeToggle) {
-                        val canDrawOverlays = Settings.canDrawOverlays(context)
-                        PermissionStatusRow(
-                            title = "Display over other apps",
-                            isGranted = canDrawOverlays,
-                            subtitle = if (canDrawOverlays) "Allowed" else "Needed for full-screen alerts",
-                            isWarning = !canDrawOverlays,
-                            onClick = {
-                                val intent = Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    Uri.parse("package:${context.packageName}")
-                                )
-                                context.startActivity(intent)
-                            }
-                        )
-                    }
-                }
-                } // permissionsExpanded
-
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                // Calendar visibility section
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item {
-                    SectionHeader(
-                        title = "Calendars",
-                        expanded = calendarsExpanded,
-                        onToggle = { calendarsExpanded = !calendarsExpanded }
-                    )
-                }
-
-                if (calendarsExpanded) {
-                if (calendars.isEmpty()) {
                     item {
-                        TextMMD(
-                            text = "No calendars found. Install and set up DAVx5 to add CalDAV accounts, " +
-                                    "or sign in with Google.",
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                    }
-                } else {
-                    itemsIndexed(calendars) { index, cal ->
-                        CalendarToggleRow(
-                            calendar = cal,
-                            onToggle = { visible ->
-                                scope.launch {
-                                    viewModel.setCalendarVisibility(cal.id, visible)
+                        key(resumeToggle) {
+                            val notificationsGranted =
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                } else {
+                                    context.getSystemService(NotificationManager::class.java)
+                                        .areNotificationsEnabled()
                                 }
+                            PermissionStatusRow(
+                                title = "Notifications",
+                                isGranted = notificationsGranted,
+                                onClick = {
+                                    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                        }
+                                    } else {
+                                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                            data = Uri.fromParts("package", context.packageName, null)
+                                        }
+                                    }
+                                    context.startActivity(intent)
+                                }
+                            )
+                        }
+                    }
+
+                    item {
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        item {
+                            key(resumeToggle) {
+                                val alarmManager = context.getSystemService(AlarmManager::class.java)
+                                PermissionStatusRow(
+                                    title = "Exact Alarms",
+                                    isGranted = alarmManager.canScheduleExactAlarms(),
+                                    onClick = {
+                                        val intent =
+                                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                                data = Uri.fromParts("package", context.packageName, null)
+                                            }
+                                        context.startActivity(intent)
+                                    }
+                                )
                             }
-                        )
-                        if (index < calendars.size - 1) {
+                        }
+                        item {
+                            HorizontalDividerMMD(
+                                thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+
+                    item {
+                        key(resumeToggle) {
+                            val powerManager = context.getSystemService(PowerManager::class.java)
+                            val isIgnoringBatteryOptimizations =
+                                powerManager.isIgnoringBatteryOptimizations(context.packageName)
+                            PermissionStatusRow(
+                                title = "Battery Optimization",
+                                isGranted = isIgnoringBatteryOptimizations,
+                                subtitle = if (isIgnoringBatteryOptimizations) "Disabled (Recommended)" else "Enabled (May delay reminders)",
+                                isWarning = !isIgnoringBatteryOptimizations,
+                                onClick = {
+                                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                    }
+                                    context.startActivity(intent)
+                                }
+                            )
+                        }
+                    }
+
+                    item {
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+
+                    if (isDuraSpeedAvailable) {
+                        item {
+                            DuraSpeedStatusRow(
+                                confirmed = duraspeedConfirmed,
+                                onConfirmedChange = { scope.launch { viewModel.setDuraspeedConfirmed(it) } },
+                                onOpenDuraSpeed = {
+                                    try {
+                                        val intent = context.packageManager.getLaunchIntentForPackage("com.mediatek.duraspeed")
+                                        if (intent != null) {
+                                            context.startActivity(intent)
+                                        } else {
+                                            val explicitIntent = Intent().apply {
+                                                component = ComponentName("com.mediatek.duraspeed", "com.mediatek.duraspeed.DuraSpeedMainActivity")
+                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                            }
+                                            context.startActivity(explicitIntent)
+                                        }
+                                    } catch (e: Exception) {
+                                        try {
+                                            val appInfoIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                data = Uri.fromParts("package", "com.mediatek.duraspeed", null)
+                                            }
+                                            context.startActivity(appInfoIntent)
+                                        } catch (e2: Exception) {
+                                            context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        item {
                             DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
-                }
-                } // calendarsExpanded
 
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                // Display preferences
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item {
-                    SectionHeader(
-                        title = "Display",
-                        expanded = displayExpanded,
-                        onToggle = { displayExpanded = !displayExpanded }
-                    )
-                }
-
-                if (displayExpanded) {
-                item {
-                    SettingToggle(
-                        title = "Show week numbers",
-                        checked = showWeekNumbers,
-                        onCheckedChange = { scope.launch { viewModel.setShowWeekNumbers(it) } }
-                    )
-                }
-
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                item {
-                    SettingToggle(
-                        title = "Start week on Monday",
-                        checked = startDayMonday,
-                        onCheckedChange = { scope.launch { viewModel.setStartWeekOnMonday(it) } }
-                    )
-                }
-
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                item {
-                    SettingToggle(
-                        title = "Use American date format",
-                        checked = useAmericanDateFormat,
-                        onCheckedChange = { scope.launch { viewModel.setUseAmericanDateFormat(it) } }
-                    )
-                }
-                } // displayExpanded
-
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                // Text Size section
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item {
-                    SectionHeader(
-                        title = "Text Size",
-                        expanded = textSizeExpanded,
-                        onToggle = { textSizeExpanded = !textSizeExpanded }
-                    )
-                }
-
-                if (textSizeExpanded) {
-                item {
-                    LaunchViewRow(
-                        title = "Small",
-                        isSelected = textScale == 0.9f,
-                        onClick = { scope.launch { viewModel.setTextScale(0.9f) } }
-                    )
-                }
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-                item {
-                    LaunchViewRow(
-                        title = "Default",
-                        isSelected = textScale == 1.0f,
-                        onClick = { scope.launch { viewModel.setTextScale(1.0f) } }
-                    )
-                }
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-                item {
-                    LaunchViewRow(
-                        title = "Large",
-                        isSelected = textScale == 1.15f,
-                        onClick = { scope.launch { viewModel.setTextScale(1.15f) } }
-                    )
-                }
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-                item {
-                    LaunchViewRow(
-                        title = "Extra Large",
-                        isSelected = textScale == 1.3f,
-                        onClick = { scope.launch { viewModel.setTextScale(1.3f) } }
-                    )
-                }
-                } // textSizeExpanded
-
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                // Launch View section
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item {
-                    SectionHeader(
-                        title = "Startup",
-                        expanded = startupExpanded,
-                        onToggle = { startupExpanded = !startupExpanded }
-                    )
-                }
-
-                if (startupExpanded) {
-                item {
-                    LaunchViewRow(
-                        title = "Month view",
-                        isSelected = startDestination == "calendar",
-                        onClick = { scope.launch { viewModel.setStartDestination("calendar") } }
-                    )
-                }
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-                item {
-                    LaunchViewRow(
-                        title = "Agenda view",
-                        isSelected = startDestination == "agenda",
-                        onClick = { scope.launch { viewModel.setStartDestination("agenda") } }
-                    )
-                }
-                } // startupExpanded
-
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                // Default Calendar section
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item {
-                    SectionHeader(
-                        title = "Default Calendar",
-                        expanded = defaultCalendarExpanded,
-                        onToggle = { defaultCalendarExpanded = !defaultCalendarExpanded }
-                    )
-                }
-
-                if (defaultCalendarExpanded) {
-                if (calendars.isEmpty()) {
                     item {
-                        TextMMD(
-                            text = "No calendars available.",
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                        key(resumeToggle) {
+                            val canDrawOverlays = Settings.canDrawOverlays(context)
+                            PermissionStatusRow(
+                                title = "Display over other apps",
+                                isGranted = canDrawOverlays,
+                                subtitle = if (canDrawOverlays) "Allowed" else "Needed for full-screen alerts",
+                                isWarning = !canDrawOverlays,
+                                onClick = {
+                                    val intent = Intent(
+                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                        Uri.parse("package:${context.packageName}")
+                                    )
+                                    context.startActivity(intent)
+                                }
+                            )
+                        }
+                    }
+                }
+            } else if (selectedTab == 1) {
+                SettingsTabColumn {
+                    item {
+                        SettingToggle(
+                            title = "Show week numbers",
+                            checked = showWeekNumbers,
+                            onCheckedChange = { scope.launch { viewModel.setShowWeekNumbers(it) } }
                         )
                     }
-                } else {
-                    val writableCalendars = calendars.filter { it.isWritable }
-                    if (writableCalendars.isEmpty()) {
+                    item {
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                    item {
+                        SettingToggle(
+                            title = "Start week on Monday",
+                            checked = startDayMonday,
+                            onCheckedChange = { scope.launch { viewModel.setStartWeekOnMonday(it) } }
+                        )
+                    }
+                    item {
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                    item {
+                        SettingToggle(
+                            title = "Use American date format",
+                            checked = useAmericanDateFormat,
+                            onCheckedChange = { scope.launch { viewModel.setUseAmericanDateFormat(it) } }
+                        )
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TextMMD(
+                            text = "Text Size",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    item {
+                        LaunchViewRow(
+                            title = "Small",
+                            isSelected = textScale == 0.9f,
+                            onClick = { scope.launch { viewModel.setTextScale(0.9f) } }
+                        )
+                    }
+                    item {
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                    item {
+                        LaunchViewRow(
+                            title = "Default",
+                            isSelected = textScale == 1.0f,
+                            onClick = { scope.launch { viewModel.setTextScale(1.0f) } }
+                        )
+                    }
+                    item {
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                    item {
+                        LaunchViewRow(
+                            title = "Large",
+                            isSelected = textScale == 1.15f,
+                            onClick = { scope.launch { viewModel.setTextScale(1.15f) } }
+                        )
+                    }
+                    item {
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                    item {
+                        LaunchViewRow(
+                            title = "Extra Large",
+                            isSelected = textScale == 1.3f,
+                            onClick = { scope.launch { viewModel.setTextScale(1.3f) } }
+                        )
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TextMMD(
+                            text = "Startup",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    item {
+                        LaunchViewRow(
+                            title = "Month view",
+                            isSelected = startDestination == "calendar",
+                            onClick = { scope.launch { viewModel.setStartDestination("calendar") } }
+                        )
+                    }
+                    item {
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                    item {
+                        LaunchViewRow(
+                            title = "Agenda view",
+                            isSelected = startDestination == "agenda",
+                            onClick = { scope.launch { viewModel.setStartDestination("agenda") } }
+                        )
+                    }
+                }
+            } else if (selectedTab == 2) {
+                SettingsTabColumn {
+                    item {
+                        TextMMD(
+                            text = "Calendars",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    if (calendars.isEmpty()) {
                         item {
                             TextMMD(
-                                text = "No writable calendars found.",
+                                text = "No calendars found. Install and set up DAVx5 to add CalDAV accounts, " +
+                                        "or sign in with Google.",
                                 fontSize = 14.sp,
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             )
                         }
                     } else {
-                        itemsIndexed(writableCalendars) { index, cal ->
-                            DefaultCalendarRow(
+                        itemsIndexed(calendars) { index, cal ->
+                            CalendarToggleRow(
                                 calendar = cal,
-                                isSelected = cal.id == defaultCalendarId,
-                                onClick = {
+                                onToggle = { visible ->
                                     scope.launch {
-                                        viewModel.setDefaultCalendar(cal.id)
+                                        viewModel.setCalendarVisibility(cal.id, visible)
                                     }
                                 }
                             )
-                            if (index < writableCalendars.size - 1) {
+                            if (index < calendars.size - 1) {
                                 DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
                             }
                         }
                     }
-                }
-                } // defaultCalendarExpanded
 
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                }
-
-                // Default Reminder section
-                item { Spacer(modifier = Modifier.height(16.dp)) }
-                item {
-                    SectionHeader(
-                        title = "Default Reminder",
-                        expanded = defaultReminderExpanded,
-                        onToggle = { defaultReminderExpanded = !defaultReminderExpanded }
-                    )
-                }
-
-                if (defaultReminderExpanded) {
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showReminderPicker = true }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                         TextMMD(
-                            text = reminderOptions.find { it.second == defaultReminderMinutes }?.first
-                                ?: "No reminder",
-                            fontSize = 16.sp
+                            text = "Default Calendar",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    if (calendars.isEmpty()) {
+                        item {
+                            TextMMD(
+                                text = "No calendars available.",
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
+                    } else {
+                        val writableCalendars = calendars.filter { it.isWritable }
+                        if (writableCalendars.isEmpty()) {
+                            item {
+                                TextMMD(
+                                    text = "No writable calendars found.",
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                            }
+                        } else {
+                            itemsIndexed(writableCalendars) { index, cal ->
+                                DefaultCalendarRow(
+                                    calendar = cal,
+                                    isSelected = cal.id == defaultCalendarId,
+                                    onClick = {
+                                        scope.launch {
+                                            viewModel.setDefaultCalendar(cal.id)
+                                        }
+                                    }
+                                )
+                                if (index < writableCalendars.size - 1) {
+                                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TextMMD(
+                            text = "Default Reminder",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                    item {
+                        Row(
                             modifier = Modifier
-                                .size(24.dp)
-                                .rotate(180f)
-                        ) // Chevron right
+                                .fillMaxWidth()
+                                .clickable { showReminderPicker = true }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextMMD(
+                                text = reminderOptions.find { it.second == defaultReminderMinutes }?.first
+                                    ?: "No reminder",
+                                fontSize = 16.sp
+                            )
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .rotate(180f)
+                            ) // Chevron right
+                        }
                     }
                 }
-                } // defaultReminderExpanded
-
-                item {
-                    DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            } else if (selectedTab == 3) {
+                SettingsTabColumn {
+                    item {
+                        TextMMD(
+                            text = "ErdCal",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TextMMD(
+                            text = "Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TextMMD(
+                            text = "Built with Mudita Mindful Design for e-ink devices.\n\n" +
+                                    "Reads calendars synced by DAVx5 (CalDAV), Google Calendar, Exchange, " +
+                                    "and any other Android sync adapter.",
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            lineHeight = 18.sp
+                        )
+                    }
                 }
-
-                // About section
-                item { Spacer(modifier = Modifier.height(32.dp)) }
-                item {
-                    SectionHeader(
-                        title = "About",
-                        expanded = aboutExpanded,
-                        onToggle = { aboutExpanded = !aboutExpanded }
-                    )
-                }
-                if (aboutExpanded) {
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-                item {
-                    TextMMD(
-                        text = "ErdCal",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-                item {
-                    TextMMD(
-                        text = "Built with Mudita Mindful Design for e-ink devices.\n\n" +
-                                "Reads calendars synced by DAVx5 (CalDAV), Google Calendar, Exchange, " +
-                                "and any other Android sync adapter.",
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        lineHeight = 16.sp
-                    )
-                }
-                } // aboutExpanded
-
-                item { Spacer(modifier = Modifier.height(32.dp)) }
             }
+        }
+    }
+}
 
-            if (isScrollable) {
-                EInkScrollbar(state = listState, scope = scope)
-            }
+/**
+ * Shared scaffolding for a settings tab's content: a jump-scrolling
+ * LazyColumn with an e-ink scrollbar, matching the scroll behavior used
+ * throughout the rest of the app.
+ */
+@Composable
+private fun SettingsTabColumn(content: LazyListScope.() -> Unit) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
+    val canScrollBackward by remember { derivedStateOf { listState.canScrollBackward } }
+    val isScrollable by remember { derivedStateOf { canScrollForward || canScrollBackward } }
+
+    Row(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .eInkVerticalScroll(listState, scope, isScrollable)
+                .padding(vertical = 16.dp),
+            userScrollEnabled = false,
+            content = content,
+        )
+        if (isScrollable) {
+            EInkScrollbar(state = listState, scope = scope)
         }
     }
 }
@@ -764,39 +723,6 @@ private fun ReminderPickerOverlay(
                 }
             }
         }
-    }
-}
-
-/**
- * Tappable section header for a collapsible settings group. Shows a chevron
- * indicating expanded/collapsed state; the section's rows are only
- * composed into the LazyColumn while [expanded] is true, so a collapsed
- * section costs one row of scroll height instead of all its content.
- */
-@Composable
-private fun SectionHeader(
-    title: String,
-    expanded: Boolean,
-    onToggle: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onToggle() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        TextMMD(
-            text = title,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Icon(
-            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-            contentDescription = if (expanded) "Collapse" else "Expand",
-            modifier = Modifier.size(20.dp)
-        )
     }
 }
 
