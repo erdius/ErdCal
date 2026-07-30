@@ -73,9 +73,9 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var showReminderPicker by remember { mutableStateOf(false) }
 
-    // 0 = General, 1 = Display, 2 = Calendars, 3 = About
+    // 0 = General, 1 = Display, 2 = Calendar, 3 = About
     var selectedTab by remember { mutableStateOf(0) }
-    val tabOptions = listOf("General", "Display", "Calendars", "About")
+    val tabOptions = listOf("General", "Display", "Calendar", "About")
 
     val isDuraSpeedAvailable = remember {
         try {
@@ -157,8 +157,9 @@ fun SettingsScreen(
                         text = {
                             TextMMD(
                                 text = title,
-                                fontSize = 16.sp,
+                                fontSize = 13.sp,
                                 fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                maxLines = 1,
                             )
                         },
                     )
