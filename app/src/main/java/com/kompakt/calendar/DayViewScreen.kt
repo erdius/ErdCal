@@ -350,6 +350,12 @@ fun TimeGridOverlay(
     val latestMaxColumnOffset by rememberUpdatedState(maxColumnOffset)
     val latestHasOverflow by rememberUpdatedState(hasOverflow)
     val latestOnChange by rememberUpdatedState(onColumnOffsetChange)
+    // onLongPress closes over the currently viewed date; without this, the
+    // pointerInput(Unit) below (installed once) would freeze it to whatever
+    // day was showing on first composition, silently misfiling new events
+    // added after navigating to a different day.
+    val latestOnLongPress by rememberUpdatedState(onLongPress)
+    val latestRangeStart by rememberUpdatedState(rangeStart)
 
     BoxWithConstraints(
         modifier = Modifier
@@ -360,8 +366,8 @@ fun TimeGridOverlay(
                     onLongPress = { offset ->
                         val minutes = ((offset.y - 14.dp.toPx()) / slotHeight.toPx()) * 60
                         val snappedMinutes = ((minutes + 7.5f) / 15).toInt() * 15
-                        val time = rangeStart.plusMinutes(snappedMinutes.toLong())
-                        onLongPress(time)
+                        val time = latestRangeStart.plusMinutes(snappedMinutes.toLong())
+                        latestOnLongPress(time)
                     }
                 )
             }
@@ -414,6 +420,13 @@ fun TimeGridOverlay(
                 val height = slotHeight * (durationMinutes / 60f)
 
                 var dragOffset by remember { mutableStateOf(0f) }
+                // pointerInput is keyed on ev.id, which stays the same across
+                // different instances of a recurring event on different days,
+                // so a plain capture of ev/actualStart/onEventMoved would
+                // freeze to whichever instance first installed the gesture.
+                val latestEv by rememberUpdatedState(ev)
+                val latestActualStart by rememberUpdatedState(actualStart)
+                val latestOnEventMoved by rememberUpdatedState(onEventMoved)
 
                 Box(
                     modifier = Modifier
@@ -428,11 +441,11 @@ fun TimeGridOverlay(
                                 onDragStart = { dragOffset = 0f },
                                 onDragEnd = {
                                     val minutesDragged = (dragOffset.dp.toPx() / slotHeight.toPx()) * 60
-                                    val totalMinutes = (actualStart.toSecondOfDay() / 60f) + minutesDragged
+                                    val totalMinutes = (latestActualStart.toSecondOfDay() / 60f) + minutesDragged
                                     val snappedMinutes = ((totalMinutes + 7.5f) / 15).toInt() * 15
                                     val finalMinutes = snappedMinutes.coerceIn(0, 1439)
                                     val newTime = LocalTime.of(finalMinutes / 60, finalMinutes % 60)
-                                    onEventMoved(ev, newTime)
+                                    latestOnEventMoved(latestEv, newTime)
                                     dragOffset = 0f
                                 },
                                 onDragCancel = { dragOffset = 0f },
