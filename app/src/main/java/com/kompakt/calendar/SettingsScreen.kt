@@ -63,6 +63,7 @@ fun SettingsScreen(
     val useAmericanDateFormat by viewModel.useAmericanDateFormat.collectAsState()
     val startDestination by viewModel.startDestination.collectAsState()
     val textScale by viewModel.textScale.collectAsState()
+    val duraspeedConfirmed by viewModel.duraspeedConfirmed.collectAsState()
     val calendars by viewModel.calendarsLive.collectAsState()
     val defaultCalendarId by viewModel.defaultCalendarId.collectAsState()
     val defaultReminderMinutes by viewModel.defaultReminderMinutes.collectAsState()
@@ -281,40 +282,36 @@ fun SettingsScreen(
 
                 if (isDuraSpeedAvailable) {
                     item {
-                        key(resumeToggle) {
-                            PermissionStatusRow(
-                                title = "DuraSpeed",
-                                isGranted = false,
-                                subtitle = "Ensure ErdCal is toggled ON in DuraSpeed settings",
-                                isWarning = true,
-                                onClick = {
+                        DuraSpeedStatusRow(
+                            confirmed = duraspeedConfirmed,
+                            onConfirmedChange = { scope.launch { viewModel.setDuraspeedConfirmed(it) } },
+                            onOpenDuraSpeed = {
+                                try {
+                                    val intent = context.packageManager.getLaunchIntentForPackage("com.mediatek.duraspeed")
+                                    if (intent != null) {
+                                        context.startActivity(intent)
+                                    } else {
+                                        // Fallback to explicit component
+                                        val explicitIntent = Intent().apply {
+                                            component = ComponentName("com.mediatek.duraspeed", "com.mediatek.duraspeed.DuraSpeedMainActivity")
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(explicitIntent)
+                                    }
+                                } catch (e: Exception) {
+                                    // If all direct attempts fail, open App Info which often has a link to DuraSpeed
                                     try {
-                                        val intent = context.packageManager.getLaunchIntentForPackage("com.mediatek.duraspeed")
-                                        if (intent != null) {
-                                            context.startActivity(intent)
-                                        } else {
-                                            // Fallback to explicit component
-                                            val explicitIntent = Intent().apply {
-                                                component = ComponentName("com.mediatek.duraspeed", "com.mediatek.duraspeed.DuraSpeedMainActivity")
-                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                            }
-                                            context.startActivity(explicitIntent)
+                                        val appInfoIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                            data = Uri.fromParts("package", "com.mediatek.duraspeed", null)
                                         }
-                                    } catch (e: Exception) {
-                                        // If all direct attempts fail, open App Info which often has a link to DuraSpeed
-                                        try {
-                                            val appInfoIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                                data = Uri.fromParts("package", "com.mediatek.duraspeed", null)
-                                            }
-                                            context.startActivity(appInfoIntent)
-                                        } catch (e2: Exception) {
-                                            // Final fallback: open general settings
-                                            context.startActivity(Intent(Settings.ACTION_SETTINGS))
-                                        }
+                                        context.startActivity(appInfoIntent)
+                                    } catch (e2: Exception) {
+                                        // Final fallback: open general settings
+                                        context.startActivity(Intent(Settings.ACTION_SETTINGS))
                                     }
                                 }
-                            )
-                        }
+                            }
+                        )
                     }
 
                     item {
@@ -892,6 +889,47 @@ private fun PermissionStatusRow(
             imageVector = if (isGranted) Icons.Default.CheckCircle else if (isWarning) Icons.Default.Warning else Icons.Default.Error,
             contentDescription = null,
             modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+/**
+ * DuraSpeed's per-app whitelist state can't be queried from a third-party
+ * app (MediaTek exposes no public API for it), unlike the other permission
+ * rows above which read real system state. This is self-reported instead:
+ * tapping the row's text opens the DuraSpeed app so the user can check/set
+ * it there, and the switch is a manual "I've done this" toggle that's
+ * persisted, so the row doesn't get stuck showing a warning regardless of
+ * what's actually configured.
+ */
+@Composable
+private fun DuraSpeedStatusRow(
+    confirmed: Boolean,
+    onConfirmedChange: (Boolean) -> Unit,
+    onOpenDuraSpeed: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpenDuraSpeed() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            TextMMD(text = "DuraSpeed", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            TextMMD(
+                text = if (confirmed) {
+                    "Confirmed whitelisted (tap to open DuraSpeed)"
+                } else {
+                    "Ensure ErdCal is toggled ON in DuraSpeed settings, then mark it done here"
+                },
+                fontSize = 12.sp
+            )
+        }
+        SwitchMMD(
+            checked = confirmed,
+            onCheckedChange = onConfirmedChange
         )
     }
 }

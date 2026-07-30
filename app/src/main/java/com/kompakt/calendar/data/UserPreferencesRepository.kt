@@ -46,6 +46,11 @@ class UserPreferencesRepository(
     val textScale: Flow<Float> = context.dataStore.data
         .map { it[TEXT_SCALE] ?: 1.0f }
 
+    // Self-reported, since Android has no public API for a third-party app
+    // to query MediaTek DuraSpeed's per-app whitelist state.
+    val duraspeedConfirmed: Flow<Boolean> = context.dataStore.data
+        .map { it[DURASPEED_CONFIRMED] ?: false }
+
     suspend fun saveShowWeekNumbers(value: Boolean) {
         context.dataStore.edit { it[SHOW_WEEK_NUMBERS] = value }
     }
@@ -78,6 +83,10 @@ class UserPreferencesRepository(
         context.dataStore.edit { it[TEXT_SCALE] = value }
     }
 
+    suspend fun saveDuraspeedConfirmed(value: Boolean) {
+        context.dataStore.edit { it[DURASPEED_CONFIRMED] = value }
+    }
+
     private companion object {
         val SHOW_WEEK_NUMBERS = booleanPreferencesKey("show_week_numbers")
         val START_WEEK_ON_MONDAY = booleanPreferencesKey("start_week_on_monday")
@@ -87,5 +96,6 @@ class UserPreferencesRepository(
         val USE_AMERICAN_DATE_FORMAT = booleanPreferencesKey("use_american_date_format")
         val START_DESTINATION = stringPreferencesKey("start_destination")
         val TEXT_SCALE = floatPreferencesKey("text_scale")
+        val DURASPEED_CONFIRMED = booleanPreferencesKey("duraspeed_confirmed")
     }
 }

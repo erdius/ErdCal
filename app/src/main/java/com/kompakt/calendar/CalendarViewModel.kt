@@ -180,6 +180,9 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     val textScale: StateFlow<Float> = prefs.textScale
         .stateIn(viewModelScope, SharingStarted.Eagerly, 1.0f)
 
+    val duraspeedConfirmed: StateFlow<Boolean> = prefs.duraspeedConfirmed
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     init {
         viewModelScope.launch {
             _calendarsRefresh.value = repo.getCalendars()
@@ -476,6 +479,10 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun setTextScale(scale: Float) {
         prefs.saveTextScale(scale)
+    }
+
+    suspend fun setDuraspeedConfirmed(confirmed: Boolean) {
+        prefs.saveDuraspeedConfirmed(confirmed)
     }
 
     private fun getPageForCurrentTime(): Int {
