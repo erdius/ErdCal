@@ -22,6 +22,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -67,6 +69,17 @@ fun SettingsScreen(
     val hasPermission by viewModel.hasPermission.collectAsState()
     val scope = rememberCoroutineScope()
     var showReminderPicker by remember { mutableStateOf(false) }
+
+    // Collapsed by default so opening Settings shows a short list of section
+    // headers instead of every row at once; tap a header to expand it.
+    var permissionsExpanded by remember { mutableStateOf(false) }
+    var calendarsExpanded by remember { mutableStateOf(false) }
+    var displayExpanded by remember { mutableStateOf(false) }
+    var textSizeExpanded by remember { mutableStateOf(false) }
+    var startupExpanded by remember { mutableStateOf(false) }
+    var defaultCalendarExpanded by remember { mutableStateOf(false) }
+    var defaultReminderExpanded by remember { mutableStateOf(false) }
+    var aboutExpanded by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
     val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
@@ -156,15 +169,14 @@ fun SettingsScreen(
                 // Permissions Status section
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
-                    TextMMD(
-                        text = "System Permissions & Optimization",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                    SectionHeader(
+                        title = "System Permissions & Optimization",
+                        expanded = permissionsExpanded,
+                        onToggle = { permissionsExpanded = !permissionsExpanded }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
 
+                if (permissionsExpanded) {
                 item {
                     PermissionStatusRow(
                         title = "Calendar Access",
@@ -328,6 +340,7 @@ fun SettingsScreen(
                         )
                     }
                 }
+                } // permissionsExpanded
 
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
@@ -337,15 +350,14 @@ fun SettingsScreen(
                 // Calendar visibility section
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
-                    TextMMD(
-                        text = "Calendars",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                    SectionHeader(
+                        title = "Calendars",
+                        expanded = calendarsExpanded,
+                        onToggle = { calendarsExpanded = !calendarsExpanded }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
 
+                if (calendarsExpanded) {
                 if (calendars.isEmpty()) {
                     item {
                         TextMMD(
@@ -370,6 +382,7 @@ fun SettingsScreen(
                         }
                     }
                 }
+                } // calendarsExpanded
 
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
@@ -379,15 +392,14 @@ fun SettingsScreen(
                 // Display preferences
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
-                    TextMMD(
-                        text = "Display",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                    SectionHeader(
+                        title = "Display",
+                        expanded = displayExpanded,
+                        onToggle = { displayExpanded = !displayExpanded }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
 
+                if (displayExpanded) {
                 item {
                     SettingToggle(
                         title = "Show week numbers",
@@ -419,6 +431,7 @@ fun SettingsScreen(
                         onCheckedChange = { scope.launch { viewModel.setUseAmericanDateFormat(it) } }
                     )
                 }
+                } // displayExpanded
 
                 item {
                     DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -427,15 +440,14 @@ fun SettingsScreen(
                 // Text Size section
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
-                    TextMMD(
-                        text = "Text Size",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                    SectionHeader(
+                        title = "Text Size",
+                        expanded = textSizeExpanded,
+                        onToggle = { textSizeExpanded = !textSizeExpanded }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
 
+                if (textSizeExpanded) {
                 item {
                     LaunchViewRow(
                         title = "Small",
@@ -473,6 +485,7 @@ fun SettingsScreen(
                         onClick = { scope.launch { viewModel.setTextScale(1.3f) } }
                     )
                 }
+                } // textSizeExpanded
 
                 item {
                     DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -481,15 +494,14 @@ fun SettingsScreen(
                 // Launch View section
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
-                    TextMMD(
-                        text = "Startup",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                    SectionHeader(
+                        title = "Startup",
+                        expanded = startupExpanded,
+                        onToggle = { startupExpanded = !startupExpanded }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
 
+                if (startupExpanded) {
                 item {
                     LaunchViewRow(
                         title = "Month view",
@@ -507,6 +519,7 @@ fun SettingsScreen(
                         onClick = { scope.launch { viewModel.setStartDestination("agenda") } }
                     )
                 }
+                } // startupExpanded
 
                 item {
                     DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -515,15 +528,14 @@ fun SettingsScreen(
                 // Default Calendar section
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
-                    TextMMD(
-                        text = "Default Calendar",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                    SectionHeader(
+                        title = "Default Calendar",
+                        expanded = defaultCalendarExpanded,
+                        onToggle = { defaultCalendarExpanded = !defaultCalendarExpanded }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
 
+                if (defaultCalendarExpanded) {
                 if (calendars.isEmpty()) {
                     item {
                         TextMMD(
@@ -559,6 +571,7 @@ fun SettingsScreen(
                         }
                     }
                 }
+                } // defaultCalendarExpanded
 
                 item {
                     DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -567,15 +580,14 @@ fun SettingsScreen(
                 // Default Reminder section
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 item {
-                    TextMMD(
-                        text = "Default Reminder",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                    SectionHeader(
+                        title = "Default Reminder",
+                        expanded = defaultReminderExpanded,
+                        onToggle = { defaultReminderExpanded = !defaultReminderExpanded }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
 
+                if (defaultReminderExpanded) {
                 item {
                     Row(
                         modifier = Modifier
@@ -599,6 +611,7 @@ fun SettingsScreen(
                         ) // Chevron right
                     }
                 }
+                } // defaultReminderExpanded
 
                 item {
                     DashedDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -607,13 +620,13 @@ fun SettingsScreen(
                 // About section
                 item { Spacer(modifier = Modifier.height(32.dp)) }
                 item {
-                    TextMMD(
-                        text = "About",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                    SectionHeader(
+                        title = "About",
+                        expanded = aboutExpanded,
+                        onToggle = { aboutExpanded = !aboutExpanded }
                     )
                 }
+                if (aboutExpanded) {
                 item { Spacer(modifier = Modifier.height(8.dp)) }
                 item {
                     TextMMD(
@@ -633,6 +646,7 @@ fun SettingsScreen(
                         lineHeight = 16.sp
                     )
                 }
+                } // aboutExpanded
 
                 item { Spacer(modifier = Modifier.height(32.dp)) }
             }
@@ -753,6 +767,39 @@ private fun ReminderPickerOverlay(
                 }
             }
         }
+    }
+}
+
+/**
+ * Tappable section header for a collapsible settings group. Shows a chevron
+ * indicating expanded/collapsed state; the section's rows are only
+ * composed into the LazyColumn while [expanded] is true, so a collapsed
+ * section costs one row of scroll height instead of all its content.
+ */
+@Composable
+private fun SectionHeader(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        TextMMD(
+            text = title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Icon(
+            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            contentDescription = if (expanded) "Collapse" else "Expand",
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
