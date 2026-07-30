@@ -4,6 +4,12 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.serialization' version '1.9.0'
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace 'com.kompaktcalendar'
     compileSdk 35
@@ -12,8 +18,8 @@ android {
         applicationId "com.erdman.erdcal"
         minSdk 28
         targetSdk 35
-        versionCode 2
-        versionName "1.1.2"
+        versionCode 3
+        versionName "1.2.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -21,10 +27,24 @@ android {
         }
     }
 
+    signingConfigs {
+        if (keystoreProperties.containsKey('storeFile')) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystoreProperties.containsKey('storeFile')) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {
