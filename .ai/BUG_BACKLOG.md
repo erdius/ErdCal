@@ -52,7 +52,7 @@ Track credible bugs here. Keep `.ai/CURRENT_TASK.md` limited to the one bug curr
   Status: VERIFIED — fixed by capturing reminder minutes before the update call and cancelling from that snapshot; confirmed on a real Mudita Kompakt across add/10→5/remove/unchanged/cleanup scenarios via `dumpsys alarm`.
 
 ### BUG-002 — `lintDebug` fails before analysis due to a versionless `junit:junit` dependency
-- Status: NEW
+- Status: VERIFIED — pinned to `4.13.2`, matching ErdMusic/ErdStream; `lintDebug` now runs to completion (0 errors, 27 warnings)
 - Severity: Low
 - Confidence: High
 - Area: Build/tooling hygiene
@@ -64,3 +64,31 @@ Track credible bugs here. Keep `.ai/CURRENT_TASK.md` limited to the one bug curr
 - Proposed regression test: N/A — this is itself the check.
 - Runtime verification needed: None; build/tooling-only finding.
 - Notes: Not selected this round — one-line fix (pin a real `junit:junit` version, e.g. `4.13.2`, matching the sibling projects in this workspace) but out of scope for BUG-001's contract. Worth a dedicated quick pass; flagging now so it isn't mistaken for a regression from later bug-hunt commits.
+
+### BUG-003 — Compose lint checks are skipped because the bundled issue registry uses incompatible APIs
+- Status: NEW
+- Severity: Low
+- Confidence: High
+- Area: Static-analysis coverage
+- File/component: Compose UI lint registry / Android Gradle lint toolchain.
+- Evidence: After BUG-002 allowed `lintDebug` to run, lint reported `ObsoleteLintCustomCheck` and skipped ten Compose checks, including modifier factory and pointer-event-scope checks, because `androidx.compose.ui.lint.UiIssueRegistry` references an invalid lint API.
+- Reproduction steps: Run `JAVA_HOME=... ./gradlew lintDebug` and inspect `app/build/reports/lint-results-debug.txt`.
+- Expected behavior: All bundled Compose lint checks load and analyze the project.
+- Current behavior: Ten Compose checks are omitted from analysis.
+- Proposed regression test: Run `lintDebug` after aligning the AGP/lint and Compose versions and assert the `ObsoleteLintCustomCheck` warning is absent.
+- Runtime verification needed: None; tooling-only.
+- Notes: Surfaced by BUG-002 verification; do not upgrade dependencies without a dedicated compatibility review.
+
+### BUG-004 — Direct battery-optimization exemption requests trigger Play policy warnings
+- Status: NEW
+- Severity: Low
+- Confidence: Medium
+- Area: Distribution policy / background execution
+- File/component: `CalendarPermissionGate.kt:107`, `OnboardingScreen.kt:244`, and `SettingsScreen.kt:260`.
+- Evidence: `lintDebug` reports `BatteryLife` warnings at all three direct `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` request sites, stating that the request can violate Play Store acceptable-use policy.
+- Reproduction steps: Run `JAVA_HOME=... ./gradlew lintDebug` and inspect the three `BatteryLife` findings.
+- Expected behavior: Battery-optimization onboarding should satisfy the app's alarm reliability needs and its intended distribution channel's policy.
+- Current behavior: The app directly requests exemption at three sites and lint flags each one for Play policy risk.
+- Proposed regression test: Add a focused UI/intent test once the intended policy-compliant flow is defined; keep `lintDebug` free of `BatteryLife` findings.
+- Runtime verification needed: Verify alarm delivery through Doze/App Standby and the exemption flow on API 28 and a current Android version.
+- Notes: Policy applicability depends on ErdCal's distribution channel and exact-alarm use case; requires product/distribution review before implementation.
