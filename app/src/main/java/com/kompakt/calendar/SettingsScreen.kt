@@ -257,6 +257,8 @@ fun SettingsScreen(
                                 subtitle = if (isIgnoringBatteryOptimizations) "Disabled (Recommended)" else "Enabled (May delay reminders)",
                                 isWarning = !isIgnoringBatteryOptimizations,
                                 onClick = {
+                                    // Intentional for reliable alarms on Doze-prone hardware; this app is personal-use only, not Play-distributed.
+                                    //noinspection BatteryLife
                                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                                         data = Uri.parse("package:${context.packageName}")
                                     }

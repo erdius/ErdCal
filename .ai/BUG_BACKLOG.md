@@ -80,7 +80,7 @@ Track credible bugs here. Keep `.ai/CURRENT_TASK.md` limited to the one bug curr
 - Notes: Surfaced by BUG-002 verification; do not upgrade dependencies without a dedicated compatibility review.
 
 ### BUG-004 — Direct battery-optimization exemption requests trigger Play policy warnings
-- Status: NEW
+- Status: VERIFIED — suppressed with `//noinspection BatteryLife` + justification comment at all 3 sites (intentional for this personal-use, non-Play-distributed app); lint now 0 errors/24 warnings, behavior byte-for-byte unchanged
 - Severity: Low
 - Confidence: Medium
 - Area: Distribution policy / background execution

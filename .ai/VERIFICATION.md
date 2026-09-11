@@ -1,4 +1,4 @@
-# Verification Record — BUG-003
+# Verification Record — BUG-004
 
 Status: `COMPLETE`
 
@@ -8,86 +8,56 @@ Codex owns execution evidence here; Claude reviews it against the repo and task 
 
 Result: `DESIGN FEASIBLE`
 
-Independent inspection confirmed Gradle `9.0-milestone-1`, AGP/lint `8.3.0`,
-Kotlin `1.9.22`, Compose UI `1.7.3`, Compose compiler `1.5.10`, and Material3
-`1.3.1`. KofC6650 proves AGP 9.4/Kotlin 2.2.10/MMD 1.0.0 is viable, but AGP
-`8.7.3` with stable Gradle `8.9` resolves this bug while preserving Kotlin,
-the old Compose compiler extension mechanism, dependencies, and Groovy scripts.
+Independent source inspection found exactly three direct `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` intent constructions at the contracted sites and no existing suppressions. The generated lint report attributed exactly three `BatteryLife` warnings to those expressions. A line-local `//noinspection BatteryLife` directive is accepted by lint 8.7.3, so declaration-wide `@SuppressLint` annotations are unnecessary.
 
 ## Reproduction
 
-Before editing, `./gradlew lintDebug` completed but its report began with
-`ObsoleteLintCustomCheck`, named the missing
-`UastLintUtilsKt.isIncorrectImplicitReturnInLambda(UElement)` API, and skipped
-ten Compose UI checks. Baseline: 0 errors and 27 warnings.
+Before editing, a Java 17 `./gradlew lintDebug` run succeeded and generated 0 errors/27 warnings. `lint-results-debug.txt` identified `BatteryLife` at `CalendarPermissionGate.kt:107`, `OnboardingScreen.kt:244`, and `SettingsScreen.kt:260`; no other `BatteryLife` findings existed.
 
 ## Root Cause
 
-AGP 8.3.0 supplied a lint engine older than the API used to compile Compose UI
-1.7.3's bundled `lint.jar`. Updating AGP and its wrapper together resolves the
-binary/API mismatch.
+The three intentional direct exemption requests trigger the Android lint Play-distribution policy check. ErdCal needs exemption for reliable alarm delivery on Doze-prone hardware and is a personal-use app not distributed through Google Play, so each finding is intentional but previously undocumented and unsuppressed.
 
 ## Files Changed
 
-- `build.gradle`: AGP `8.3.0` -> `8.7.3`.
-- `gradle/wrapper/gradle-wrapper.properties`: Gradle `9.0-milestone-1` -> `8.9`.
-- `.ai/VERIFICATION.md`: this evidence.
-
-No app source, SDK/dependency version, lint configuration, or backlog entry
-changed. The restored checks produced no new findings.
+- `CalendarPermissionGate.kt`, `OnboardingScreen.kt`, and `SettingsScreen.kt`: added a justification comment and line-local `//noinspection BatteryLife` immediately before each direct request intent. Intent actions, package URIs, guards, and activity launches remain unchanged.
+- `.ai/VERIFICATION.md`: recorded BUG-004 evidence and results.
 
 ## Regression Test
 
-No source test is practical for a lint registry binary-compatibility failure.
-The direct regression is real `lintDebug` execution and report inspection: the
-obsolete warning is absent and HTML metadata contains all ten formerly skipped
-IDs. `testDebugUnitTest` remains `NO-SOURCE` as expected.
+No source-level automated test is appropriate for comment-only lint suppression. The direct regression check is a real `lintDebug` run plus report inspection: the result changed from 0 errors/27 warnings to 0 errors/24 warnings, with all three and only the three `BatteryLife` findings removed. The final issue inventory is 2 `AutoboxingStateCreation`, 14 `GradleDependency`, 2 `MonochromeLauncherIcon`, 5 `ObsoleteSdkInt`, 1 `OldTargetApi`, 1 `RedundantLabel`, and 1 `UseOfNonLambdaOffsetOverload`.
 
 ## Commands Executed
 
-Every Gradle command first exported the required Java 17 `JAVA_HOME`.
+Every Gradle command first exported `/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home` as `JAVA_HOME`.
 
 ```bash
-./gradlew lintDebug # before and after
-./gradlew assembleDebug assembleRelease testDebugUnitTest lintDebug
-./gradlew :app:dependencyInsight --dependency com.mudita:MMD --configuration debugRuntimeClasspath
-./gradlew signingReport
-adb devices -l
-adb install -r app/build/outputs/apk/release/ErdCal-1.3.4.apk
-adb shell uiautomator dump ...
-adb shell dumpsys alarm
-adb logcat -d -t 500
+./gradlew lintDebug                         # pre-edit baseline
+./gradlew lintDebug                         # corrected post-edit verification
+./gradlew assembleDebug assembleRelease
+./gradlew testDebugUnitTest
+ruby -r rexml/document -e ... app/build/reports/lint-results-debug.xml
 git diff --check
+git diff -- app/src/main/java/com/kompakt/calendar/...
+git status --short
 ```
+
+An initial post-edit lint invocation overlapped a diff check that caught a temporary replacement-tool interpolation in the onboarding package URI. The URI was restored to the exact original `package:${context.packageName}` before the accepted lint/build/test runs; final diff inspection confirms no runtime expression changed.
 
 ## Results
 
-- Matrix: Gradle `9.0-milestone-1` -> `8.9`; AGP `8.3.0` -> `8.7.3`;
-  Kotlin/Compose UI/compiler/Material3 remain `1.9.22`/`1.7.3`/`1.5.10`/`1.3.1`.
-- Build/tests: PASS. Debug and signed release assembled in the combined 100-task
-  run; `signingReport` confirmed the existing release configuration;
-  `testDebugUnitTest NO-SOURCE` was expected.
-- Lint: PASS. No `ObsoleteLintCustomCheck`; HTML metadata includes all ten prior
-  check IDs. Result remains 0 errors/27 warnings, so there are no new Compose
-  findings to backlog. BUG-004's `BatteryLife` warnings remain untouched.
-- Dependencies: PASS. MMD and MMD-android 1.0.0 resolve on the AGP 8.7.3
-  runtime classpath; compile, package, install, and rendering succeeded.
-- Device: PASS on Mudita Kompakt `MK20250402537`. The signed release rendered
-  Agenda, Month, Day, Search, Settings, Add Event, and Event Detail/Edit with
-  working MMD controls/navigation. No recent ErdCal fatal exception was logged.
-- BUG-001: PASS. Changing a temporary event reminder from 5 to 10 minutes
-  removed 12:55 and left exactly 12:50 plus the 13:00 event-start alarm.
-  Deleting the test event removed both alarms.
+- Build: PASS. `assembleDebug` and `assembleRelease` completed successfully in one 88-task run.
+- Tests: PASS. `testDebugUnitTest` completed successfully with the expected `NO-SOURCE` result.
+- Lint: PASS. Final report is 0 errors/24 warnings and contains no `BatteryLife` issue. The remaining 24 issue identities/counts match the pre-edit baseline after subtracting the three targeted findings.
+- Diff hygiene: PASS. `git diff --check` reported no whitespace errors; the app-source diff contains only six explanatory/suppression comment lines.
+- Device/runtime: Not run; the contract does not require it for comment-only lint suppressions, and final diff inspection proves the request actions, data URIs, guards, and launches are byte-for-byte unchanged.
 
 ## Residual Risk
 
-No API 28 emulator, reboot/Doze cycle, or actual alarm-delivery wait was run.
-The device test covered Compose/MMD navigation and alarm rescheduling, while
-debug/release compilation covered the full app.
+A future lint version could stop recognizing line-local `//noinspection` directives; the adjacent justification comments make the intent clear if that occurs. No API 28/device interaction was exercised because executable behavior did not change.
 
 ## Contract Deviations
 
-None. AGP 9/Kotlin 2 was intentionally not used because the smaller stable
-AGP 8.7.3/Gradle 8.9 pair directly fixed the proven issue.
+None. The narrow line-local suppression avoided the broader enclosing-Composable scope called out in the contract.
 
 READY FOR CLAUDE ADVERSARIAL REVIEW

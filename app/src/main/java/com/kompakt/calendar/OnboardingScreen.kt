@@ -241,6 +241,8 @@ fun OnboardingScreen(
                         description = "No delayed alerts.",
                         isGranted = batteryGranted,
                         onClick = {
+                            // Intentional for reliable alarms on Doze-prone hardware; this app is personal-use only, not Play-distributed.
+                            //noinspection BatteryLife
                             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
                             context.startActivity(intent)
                         }
