@@ -69,7 +69,7 @@ object NotificationScheduler {
         }
     }
 
-    private fun queryReminders(context: Context, eventId: Long): List<Int> {
+    internal fun queryReminders(context: Context, eventId: Long): List<Int> {
         val list = mutableListOf<Int>()
         context.contentResolver.query(
             CalendarContract.Reminders.CONTENT_URI,
@@ -142,10 +142,11 @@ object NotificationScheduler {
     }
 
     fun cancelEventNotifications(context: Context, eventId: Long) {
+        cancelEventNotifications(context, eventId, queryReminders(context, eventId))
+    }
+
+    internal fun cancelEventNotifications(context: Context, eventId: Long, reminders: List<Int>) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
-        // We don't know the exact reminder minutes, but we can query them or just try common ones.
-        // Better yet, query them from the DB.
-        val reminders = queryReminders(context, eventId)
         reminders.forEach { mins ->
             PendingIntent.getBroadcast(
                 context,

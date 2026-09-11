@@ -49,3 +49,18 @@ Track credible bugs here. Keep `.ai/CURRENT_TASK.md` limited to the one bug curr
 - Proposed regression test: No test infrastructure exists in this project yet (no `app/src/test`/`app/src/androidTest` sources present). A reviewable diff-level check: confirm the old reminders are captured and used for cancellation before `repo.updateEvent`/`updateEventInstance` overwrites the Reminders table.
 - Runtime verification needed: `adb shell dumpsys alarm | grep -A5 com.erdman.erdcal` before and after an edit that changes reminder minutes, confirming the old alarm is gone and only the new one remains.
 - Notes: Selected as the current task — concrete, reproducible, root-caused precisely to a call-ordering issue, matches `.ai/BUG_HUNT.md`'s "AlarmManager notification stack" and "lifecycle" focus areas.
+  Status: VERIFIED — fixed by capturing reminder minutes before the update call and cancelling from that snapshot; confirmed on a real Mudita Kompakt across add/10→5/remove/unchanged/cleanup scenarios via `dumpsys alarm`.
+
+### BUG-002 — `lintDebug` fails before analysis due to a versionless `junit:junit` dependency
+- Status: NEW
+- Severity: Low
+- Confidence: High
+- Area: Build/tooling hygiene
+- File/component: `app/build.gradle:94` — `testImplementation 'junit:junit'` (no version pinned).
+- Evidence: Found by Codex while verifying BUG-001 — `./gradlew lintDebug` fails during `generateDebugUnitTestLintModel` with `Could not find junit:junit:.` before any lint rule even runs, unrelated to any bug-hunt change.
+- Reproduction steps: `JAVA_HOME=... ./gradlew lintDebug` on `main`.
+- Expected behavior: `lintDebug` should run and report real findings (or pass cleanly).
+- Current behavior: Fails at dependency resolution, before static analysis.
+- Proposed regression test: N/A — this is itself the check.
+- Runtime verification needed: None; build/tooling-only finding.
+- Notes: Not selected this round — one-line fix (pin a real `junit:junit` version, e.g. `4.13.2`, matching the sibling projects in this workspace) but out of scope for BUG-001's contract. Worth a dedicated quick pass; flagging now so it isn't mistaken for a regression from later bug-hunt commits.

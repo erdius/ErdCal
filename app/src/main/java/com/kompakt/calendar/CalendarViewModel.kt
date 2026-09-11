@@ -393,13 +393,14 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         val editId = _editingEventId.value
         val instanceTime = _editingInstanceTime.value
         return if (editId != null) {
+            val oldReminders = NotificationScheduler.queryReminders(getApplication(), editId)
             val ok = if (instanceTime != null) {
                 repo.updateEventInstance(editId, instanceTime, ne)
             } else {
                 repo.updateEvent(editId, ne)
             }
             if (ok) {
-                NotificationScheduler.cancelEventNotifications(getApplication(), editId)
+                NotificationScheduler.cancelEventNotifications(getApplication(), editId, oldReminders)
                 val startMs = ne.start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 val endMs = ne.end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 NotificationScheduler.scheduleEventNotifications(
