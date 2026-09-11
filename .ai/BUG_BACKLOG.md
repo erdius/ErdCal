@@ -66,7 +66,7 @@ Track credible bugs here. Keep `.ai/CURRENT_TASK.md` limited to the one bug curr
 - Notes: Not selected this round — one-line fix (pin a real `junit:junit` version, e.g. `4.13.2`, matching the sibling projects in this workspace) but out of scope for BUG-001's contract. Worth a dedicated quick pass; flagging now so it isn't mistaken for a regression from later bug-hunt commits.
 
 ### BUG-003 — Compose lint checks are skipped because the bundled issue registry uses incompatible APIs
-- Status: NEW
+- Status: VERIFIED — fixed with a minimal AGP 8.3.0→8.7.3 / Gradle 9.0-milestone-1→8.9 bump (Kotlin/Compose UI versions untouched); all 10 checks now load, 0 new findings, full device smoke test + BUG-001 regression re-verified
 - Severity: Low
 - Confidence: High
 - Area: Static-analysis coverage
